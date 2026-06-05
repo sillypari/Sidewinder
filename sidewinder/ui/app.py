@@ -45,6 +45,7 @@ SLASH_COMMANDS = {
     "/help":     "Open help tutorial",
     "/status":   "Show current status",
     "/adapter":  "Switch adapter",
+    "/theme":    "Switch visual theme (opencode/classic)",
     "/quit":     "Exit Sidewinder",
 }
 
@@ -60,6 +61,7 @@ class SidewinderApp(App):
     TITLE = "Sidewinder"
     SUB_TITLE = "Native Linux WiFi Audit Tool"
     CSS_PATH = "colors.tcss"
+    theme = "opencode"
     dark = True
 
     BINDINGS = [
@@ -77,17 +79,37 @@ class SidewinderApp(App):
         self._service_manager = None
         self._cleanup_manager = None
 
+        from .theme import get_textual_themes
+        for name, theme in get_textual_themes().items():
+            self.register_theme(theme)
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         yield Footer()
 
     def on_mount(self) -> None:
         """Initialize adapters, install signal handlers, and show main menu."""
+        self.theme = "opencode"
+
         self.push_screen(MainMenuScreen())
         asyncio.create_task(self._initialize())
         # Show resume prompt if previous session exists
         if self._existing_session:
             self.push_screen(ResumeScreen(self._existing_session))
+        # Initial check
+        self.call_after_refresh(self._check_size)
+
+    def on_resize(self, event) -> None:
+        self._check_size()
+
+    def _check_size(self) -> None:
+        w, h = self.size
+        if w < 80 or h < 24:
+            self.notify(
+                f"Terminal too small ({w}x{h}). Minimum 80x24 required.",
+                severity="error",
+                timeout=10,
+            )
 
     async def _initialize(self) -> None:
         """Discover adapters and initialize subsystems."""
@@ -98,6 +120,21 @@ class SidewinderApp(App):
 
             self._adapter_manager = AdapterManager()
             await self._adapter_manager.discover()
+
+            if self.dev_mode and not self._adapter_manager.adapters:
+                from ..core.adapter import AdapterInfo
+                mock_adapter = AdapterInfo(
+                    iface="wlan0 (MOCK)",
+                    chipset="RTL8812AU",
+                    driver="8812au",
+                    bands=["2.4G", "5G"],
+                    monitor_capable=True,
+                    injection_capable=True,
+                    is_up=True,
+                    current_mode="managed",
+                    status="OPTIMIZED"
+                )
+                self._adapter_manager.adapters[mock_adapter.iface] = mock_adapter
 
             self._service_manager = get_service_manager()
             self._cleanup_manager = get_cleanup_manager()

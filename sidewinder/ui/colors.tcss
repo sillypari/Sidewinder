@@ -1,278 +1,554 @@
-/* Sidewinder – dark theme TCSS */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Sidewinder — Themeable Stylesheet
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Global ─────────────────────────────────────────────────────────────── */
 
 Screen {
-    background: #0D1117;
-    color: #E6EDF3;
+    background: $background;
+    color: $foreground;
 }
 
+/* ── Header & Footer ────────────────────────────────────────────────────── */
+
 Header {
-    background: #161B22;
-    color: #4CAF50;
-    border-bottom: tall #30363D;
+    background: $panel;
+    color: $secondary;
+    border-bottom: tall $surface;
+}
+
+Header .header--title {
+    text-style: bold;
+    color: $foreground;
 }
 
 Footer {
-    background: #161B22;
-    color: #8B949E;
-    border-top: tall #30363D;
+    background: $panel;
+    color: $foreground;
+    border-top: tall $surface;
 }
 
-/* ── DataTable ─────────────────────────────────────────── */
+/* ── DataTable ──────────────────────────────────────────────────────────── */
 
 DataTable {
-    background: #161B22;
-    color: #E6EDF3;
-    border: tall #30363D;
+    background: $panel;
+    color: $foreground;
+    border: tall $surface;
 }
 
 DataTable > .datatable--header {
-    background: #00BCD4;
-    color: #0D1117;
+    background: $surface;
+    color: $secondary;
     text-style: bold;
 }
 
 DataTable > .datatable--cursor {
-    background: #4CAF50;
-    color: #0D1117;
+    background: $primary;
+    color: $background;
     text-style: bold;
 }
 
 DataTable > .datatable--header-cursor {
-    background: #4CAF50;
-    color: #0D1117;
+    background: $primary;
+    color: $background;
     text-style: bold;
 }
 
 DataTable > .datatable--fixed {
-    background: #21262D;
-    color: #E6EDF3;
+    background: $surface;
+    color: $foreground;
 }
 
 DataTable > .datatable--fixed-cursor {
-    background: #4CAF50;
-    color: #0D1117;
+    background: $primary;
+    color: $background;
 }
 
-/* ── Generic panels ─────────────────────────────────────── */
+DataTable > .datatable--even-row {
+    background: $background;
+}
+
+DataTable > .datatable--odd-row {
+    background: $panel;
+}
+
+/* ── OptionList ─────────────────────────────────────────────────────────── */
+
+OptionList {
+    background: $panel;
+    border: tall $surface;
+    color: $foreground;
+}
+
+OptionList > .option-list--option-highlighted {
+    background: $primary;
+    color: $background;
+    text-style: bold;
+}
+
+OptionList > .option-list--option-hover {
+    background: $surface;
+    color: $foreground;
+}
+
+/* ── ListView & ListItem ────────────────────────────────────────────────── */
+
+ListView {
+    background: $background;
+    border: none;
+    width: 56;
+    height: auto;
+    padding: 0;
+}
+
+ListItem {
+    padding: 0 2;
+    height: 3;
+    color: $foreground;
+    background: $background;
+}
+
+ListItem:hover {
+    background: $surface;
+    color: $foreground;
+}
+
+ListItem.-highlighted {
+    background: $surface;
+    color: $foreground;
+}
+
+ListItem > Label {
+    width: 100%;
+    height: 100%;
+    content-align: left middle;
+    padding: 0 1;
+}
+
+/* ── Input ──────────────────────────────────────────────────────────────── */
+
+Input {
+    background: $surface;
+    border: tall $surface;
+    color: $foreground;
+}
+
+Input:focus {
+    border: tall $primary;
+}
+
+Input.-valid {
+    border: tall $success;
+}
+
+Input.-invalid {
+    border: tall $error;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+Button {
+    background: $surface;
+    border: tall $surface;
+    color: $foreground;
+}
+
+Button:focus {
+    border: tall $primary;
+    color: $primary;
+}
+
+Button.-primary {
+    background: $primary;
+    color: $background;
+    border: tall $primary;
+    text-style: bold;
+}
+
+Button.-danger {
+    background: $error;
+    color: $background;
+    border: tall $error;
+    text-style: bold;
+}
+
+Button.-success {
+    background: $success;
+    color: $background;
+    border: tall $success;
+    text-style: bold;
+}
+
+/* ── ProgressBar ────────────────────────────────────────────────────────── */
+
+ProgressBar .bar--bar {
+    color: $primary;
+}
+
+ProgressBar .bar--complete {
+    color: $success;
+}
+
+ProgressBar .bar--indeterminate {
+    color: $secondary;
+}
+
+/* ── ScrollableContainer ────────────────────────────────────────────────── */
+
+ScrollableContainer {
+    background: $panel;
+    border: tall $surface;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT CONTAINERS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Main menu — vertically stacks everything, centered */
+#main-container {
+    align: center middle;
+    width: 100%;
+    height: 100%;
+}
+
+/* Generic centered column — used by menu, adapter, hints */
+Center {
+    width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOGO WIDGET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#logo {
+    text-align: center;
+    padding: 2 4 1 4;
+    width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADAPTER STATUS WIDGET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#adapter-status {
+    border: none;
+    background: $background;
+    padding: 0 4;
+    height: auto;
+    width: 56;
+    color: $foreground;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HINTS BAR (bottom of main menu)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#hints {
+    color: $foreground;
+    padding: 1 4;
+    text-align: center;
+    width: 56;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCAN SCREEN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#scan-stats {
+    background: $panel;
+    color: $foreground;
+    padding: 0 2;
+    height: 1;
+    border-bottom: tall $surface;
+}
+
+#scan-table-container {
+    background: $background;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EAPOL TRACKER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#eapol-tracker {
+    border: tall $surface;
+    background: $panel;
+    padding: 1 2;
+    height: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CAPTURE METHOD SCREEN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#method-list {
+    width: 2fr;
+    background: $background;
+    border-right: tall $surface;
+    padding: 1 2;
+}
+
+#tooltip-panel {
+    width: 1fr;
+    background: $panel;
+    padding: 1 2;
+    border: none;
+}
+
+#tooltip-title {
+    color: $primary;
+    text-style: bold;
+    padding: 0 0 1 0;
+}
+
+#tooltip-body {
+    color: $foreground;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESULT / PASSWORD CARD
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#result-card {
+    border: tall $success;
+    background: $panel;
+    padding: 1 2;
+    margin: 1 4;
+    width: 60;
+}
+
+#result-password {
+    color: $success;
+    text-style: bold;
+}
+
+#result-label {
+    color: $foreground;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADAPTER SCREEN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#adapter-screen-container {
+    padding: 1 3;
+}
+
+#adapter-title {
+    padding: 1 0 1 0;
+    color: $secondary;
+    text-style: bold;
+}
+
+#adapter-hints {
+    padding: 1 0 0 0;
+    color: $foreground;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMMAND PALETTE SCREEN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#command-container {
+    padding: 1 3;
+}
+
+#command-title {
+    padding: 1 0 1 0;
+    color: $secondary;
+    text-style: bold;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HELP SCREEN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#help-scroll {
+    background: $background;
+    padding: 0;
+}
+
+#tutorial-text {
+    padding: 2 4;
+    color: $foreground;
+    width: 100%;
+}
+
+#help-container {
+    padding: 1 4;
+    background: $panel;
+}
+
+/* ── Error / Warning Cards ── */
 
 .panel {
-    border: tall #30363D;
-    background: #161B22;
+    border: tall $surface;
+    background: $panel;
     padding: 1 2;
     margin: 0 1;
 }
 
 .panel--title {
-    color: #00BCD4;
+    color: $primary;
     text-style: bold;
 }
 
-/* ── Error card ─────────────────────────────────────────── */
-
 .error-card {
-    border: tall #F44336;
-    background: #161B22;
+    border: tall $error;
+    background: $panel;
     padding: 1 2;
     margin: 1 2;
 }
 
 .error-card--title {
-    color: #F44336;
+    color: $error;
     text-style: bold;
 }
 
 .error-card--section-title {
-    color: #FF9800;
+    color: $accent;
     text-style: bold;
 }
 
-/* ── Risk level labels ──────────────────────────────────── */
+/* ── Screen Containers ── */
 
-.risk-safe {
-    color: #00E676;
+#sc-scan, #sc-target, #sc-capture, #sc-deauth,
+#sc-crack, #sc-result, #sc-error, #sc-resume {
+    padding: 1 3;
 }
 
-.risk-caution {
-    color: #FF9800;
+#sc-method {
+    padding: 0;
 }
 
-.risk-dangerous {
-    color: #F44336;
-}
-
-/* ── Encryption type labels ─────────────────────────────── */
-
-.enc-open {
-    color: #F44336;
-}
-
-.enc-wpa2 {
-    color: #00E676;
-}
-
-.enc-wpa3 {
-    color: #00BCD4;
-}
-
-.enc-wpa {
-    color: #00E676;
+#scan-title, #target-title, #method-title, #capture-title,
+#deauth-title, #crack-title, #result-title, #resume-title {
+    padding: 1 0 1 0;
+    color: $secondary;
     text-style: bold;
 }
 
-.enc-wep {
-    color: #FF9800;
+#scan-hints, #target-hints, #method-hints, #capture-hints,
+#deauth-hints, #crack-hints, #result-hints, #error-hints {
+    padding: 1 0 0 0;
+    color: $foreground;
 }
 
-/* ── Progress bar ───────────────────────────────────────── */
-
-ProgressBar .bar--bar {
-    color: #4CAF50;
-}
-
-ProgressBar .bar--complete {
-    color: #00E676;
-}
-
-ProgressBar .bar--indeterminate {
-    color: #00BCD4;
-}
-
-/* ── Input widgets ──────────────────────────────────────── */
-
-Input {
-    background: #21262D;
-    border: tall #30363D;
-    color: #E6EDF3;
-}
-
-Input:focus {
-    border: tall #4CAF50;
-}
-
-/* ── Buttons ────────────────────────────────────────────── */
-
-Button {
-    background: #21262D;
-    border: tall #30363D;
-    color: #E6EDF3;
-}
-
-Button:focus {
-    border: tall #4CAF50;
-    color: #4CAF50;
-}
-
-Button.-primary {
-    background: #4CAF50;
-    color: #0D1117;
-    border: tall #4CAF50;
-    text-style: bold;
-}
-
-Button.-danger {
-    background: #F44336;
-    color: #0D1117;
-    border: tall #F44336;
-    text-style: bold;
-}
-
-/* ── Scrollable containers ──────────────────────────────── */
-
-ScrollableContainer {
-    background: #161B22;
-    border: tall #30363D;
-}
-
-/* ── Logo widget ─────────────────────────────────────────── */
-
-#logo {
-    color: #4CAF50;
-    text-style: bold;
-    text-align: center;
-    padding: 1 2;
-}
-
-/* ── Adapter status widget ──────────────────────────────── */
-
-#adapter-status {
-    border: tall #30363D;
-    background: #161B22;
-    padding: 1 2;
-    height: auto;
-}
-
-/* ── EAPOL tracker ──────────────────────────────────────── */
-
-#eapol-tracker {
-    border: tall #30363D;
-    background: #161B22;
-    padding: 1 2;
-    height: auto;
-}
-
-/* ── Tooltip panel ──────────────────────────────────────── */
-
-#tooltip-panel {
-    border: tall #00BCD4;
-    background: #161B22;
-    padding: 1 2;
-    width: 40;
-}
-
-/* ── Result screen ──────────────────────────────────────── */
-
-#result-password {
-    color: #00E676;
-    text-style: bold;
+#rate-display {
+    padding: 1 0;
+    color: $foreground;
 }
 
 #result-card {
-    border: tall #00E676;
-    background: #161B22;
+    border: tall $success;
+    background: $panel;
     padding: 1 2;
-    margin: 1 2;
+    margin: 1 0;
 }
 
-/* ── Help screen ────────────────────────────────────────── */
+#capture-panels {
+    height: auto;
+    border: tall $surface;
+    background: $panel;
+}
 
-#help-container {
+#stats-panel {
+    width: 1fr;
+    border-right: tall $surface;
     padding: 1 2;
-    background: #161B22;
+    background: $panel;
 }
 
-/* ── Menu items ─────────────────────────────────────────── */
-
-ListView {
-    background: #161B22;
-    border: tall #30363D;
+#eapol-panel {
+    width: 1fr;
+    padding: 1 2;
+    background: $panel;
 }
 
-ListItem {
+#crack-stats-panel {
+    border: tall $surface;
+    background: $panel;
+    padding: 1 2;
+}
+
+#method-list {
+    width: 2fr;
+    border-right: tall $surface;
     padding: 0 2;
-    color: #E6EDF3;
+    background: $background;
 }
 
-ListItem:hover {
-    background: #21262D;
-    color: #4CAF50;
+#method-hints {
+    padding: 1 0 0 0;
 }
 
-ListItem.-selected {
-    background: #21262D;
-    color: #4CAF50;
+#resume-summary {
+    padding: 1 0;
+    color: $foreground;
+}
+
+#resume-options {
+    padding: 1 0;
+}
+
+#scan-header {
+    height: 1;
+    padding: 0;
+}
+
+#scan-status {
+    text-align: right;
+}
+
+#sc-wordlist, #sc-engine, #sc-cleanup, #sc-services,
+#sc-monitor, #sc-scanopts, #sc-apdetails, #sc-captures {
+    padding: 1 3;
+}
+
+#wordlist-title, #engine-title, #cleanup-title, #services-title,
+#monitor-title, #scanopts-title, #apdetails-title, #captures-title {
+    padding: 1 0 1 0;
+    color: $secondary;
     text-style: bold;
 }
 
-/* ── Muted / secondary labels ───────────────────────────── */
-
-.muted {
-    color: #8B949E;
+#wordlist-hints, #engine-hints, #cleanup-hints, #services-hints,
+#monitor-hints, #scanopts-hints, #apdetails-hints, #captures-hints {
+    padding: 1 0 0 0;
+    color: $foreground;
 }
 
-.info-label {
-    color: #2196F3;
+#engine-options {
+    padding: 1 0;
 }
 
-.accent-label {
-    color: #9C27B0;
+#cleanup-body {
+    padding: 1 0;
+    color: $foreground;
 }
+
+#apdetails-info {
+    padding: 1 0;
+}
+
+#apdetails-clients, #apdetails-recs-title {
+    padding: 1 0 0 0;
+}
+
+#sc-apdetails {
+    padding: 1 3;
+}
+
+#monitor-status {
+    padding: 1 0;
+    color: $foreground;
+}
+
+#tooltip-info {
+    padding: 1 0;
+}
+
+#channels-label {
+    padding: 1 0 0 0;
+}
+

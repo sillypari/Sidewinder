@@ -142,10 +142,12 @@ class ServiceManager:
 
             # Force kill any remaining PIDs
             try:
-                os.kill(pid, signal.SIGKILL)
+                sig = getattr(signal, "SIGKILL", signal.SIGTERM)
+                os.kill(pid, sig)
                 logger.info("Killed %s (pid=%d)", name, pid)
             except ProcessLookupError:
                 pass  # Already dead from systemctl stop
+
 
             kp = KilledProcess(
                 name=name,

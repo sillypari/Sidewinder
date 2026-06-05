@@ -78,6 +78,8 @@ def list_interfaces() -> list[str]:
     """List all wireless interfaces from sysfs. Equivalent to airmon-ng listInterfaces()."""
     net_path = Path("/sys/class/net")
     ifaces: list[str] = []
+    if not net_path.exists():
+        return ifaces
     for iface_path in net_path.iterdir():
         phy_path = iface_path / "phy80211"
         if phy_path.exists():

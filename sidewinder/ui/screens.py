@@ -35,7 +35,7 @@ from textual.widgets import (
     Static,
 )
 from textual.widgets.option_list import Option
-from textual.containers import Horizontal, Vertical, ScrollableContainer
+from textual.containers import Horizontal, Vertical, ScrollableContainer, Center, VerticalScroll
 from textual.reactive import reactive
 
 from .components import (
@@ -44,6 +44,7 @@ from .components import (
     ErrorCard,
     LogoWidget,
     TooltipPanel,
+    Spacer,
     signal_bar,
     signal_color,
     privacy_color,
@@ -81,24 +82,73 @@ class MainMenuScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        with Vertical():
-            yield LogoWidget(id="logo")
-            yield Static(" ", id="spacer")
-            yield AdapterStatusWidget(id="adapter-status")
-            yield Static(" ", id="spacer2")
-            with Vertical(id="menu"):
+        with Vertical(id="main-container"):
+            yield Spacer(flex=1)
+            yield Spacer(height=4)
+            with Center():
+                yield LogoWidget(id="logo")
+            yield Spacer(height=1)
+            with Center():
+                yield AdapterStatusWidget(id="adapter-status")
+            yield Spacer(height=1)
+            with Center():
+                list_items = []
                 for key, label, action in MAIN_MENU_ITEMS:
                     t = Text()
-                    t.append("[")
-                    t.append(key, style="bold magenta")
-                    t.append("] ")
-                    t.append(label)
-                    yield Static(t, classes="menu-item", id=f"menu-{action}")
-            yield Static(
-                "\n [dim]/ command  ? help  Esc quit[/dim]",
-                id="hints",
-            )
+                    t.append(" [", style="#585b70")
+                    t.append(key, style="bold #cba6f7")   # mauve — key highlight
+                    t.append("]", style="#585b70")
+                    t.append(f"  {label}", style="#a6adc8")
+                    list_items.append(ListItem(Label(t), id=f"menu-{action}"))
+                yield ListView(*list_items, id="menu")
+            yield Spacer(height=1)
+            with Center():
+                yield Static(
+                    "[#585b70]  /[/#585b70][#a6adc8] command[/#a6adc8]"
+                    "  [#585b70]?[/#585b70][#a6adc8] help[/#a6adc8]"
+                    "  [#585b70]Esc[/#585b70][#a6adc8] quit[/#a6adc8]",
+                    id="hints",
+                )
+            yield Spacer(flex=1)
         yield Footer()
+
+    def on_mount(self) -> None:
+        self.update_timer = self.set_interval(1.0, self.update_adapter_status)
+        # Give ListView focus so arrow keys work immediately
+        self.query_one(ListView).focus()
+
+    def update_adapter_status(self) -> None:
+        if hasattr(self.app, "_adapter_manager") and self.app._adapter_manager:
+            best = self.app._adapter_manager.get_best_for_operation("scan")
+            if best:
+                try:
+                    widget = self.query_one("#adapter-status", AdapterStatusWidget)
+                    widget.adapter_name = best.iface
+                    widget.adapter_status = best.status
+                    widget.channel = "--"
+                    widget.mode = best.current_mode
+                except Exception:
+                    pass
+
+    async def on_list_view_selected(self, event: ListView.Selected) -> None:
+        action = event.item.id.replace("menu-", "") if event.item.id else ""
+        if action == "scan":
+            self.action_menu_1()
+        elif action == "target":
+            self.action_menu_2()
+        elif action == "crack":
+            self.action_menu_3()
+        elif action == "view":
+            self.action_menu_4()
+        elif action == "settings":
+            self.action_menu_5()
+        elif action == "cleanup":
+            if hasattr(self.app, "action_cleanup"):
+                self.app.action_cleanup()
+        elif action == "help":
+            self.action_menu_7()
+        elif action == "exit":
+            self.action_menu_0()
 
     def action_menu_1(self) -> None:
         self.app.push_screen(ScanScreen())
@@ -141,15 +191,19 @@ class AdapterScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
-            yield Static("[bold cyan]Hardware & Adapters[/bold cyan]\n", id="title")
+        yield Header(show_clock=True)
+        with Vertical(id="adapter-screen-container"):
+            yield Static(
+                "[bold #cba6f7]Hardware & Adapters[/bold #cba6f7]",
+                id="adapter-title",
+            )
             table = DataTable(id="adapter-table", show_cursor=True)
             table.add_columns("Interface", "Chipset", "Driver", "Bands", "Monitor", "Inject", "Status")
             yield table
             yield Static(
-                "\n [dim]r: refresh  Esc: back[/dim]",
-                id="hints",
+                "  [#585b70]r[/#585b70][#a6adc8] refresh[/#a6adc8]  "
+                "[#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="adapter-hints",
             )
         yield Footer()
 
@@ -191,54 +245,91 @@ class ScanScreen(Screen):
         Binding("escape", "back", "Back"),
         Binding("enter", "select_target", "Select"),
         Binding("s", "stop_scan", "Stop"),
-        Binding("j", "cursor_down", "Down", show=False),
-        Binding("k", "cursor_up", "Up", show=False),
     ]
 
     scanning: reactive[bool] = reactive(False)
     network_count: reactive[int] = reactive(0)
+    elapsed: reactive[int] = reactive(0)
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
+        from .components import ScanStatsBar, StatusBar
+        yield Header(show_clock=True)
+        with Vertical(id="sc-scan"):
             with Horizontal(id="scan-header"):
-                yield Static("[bold cyan]WiFi Scan[/bold cyan]", id="scan-title")
-                yield Static("", id="scan-status")
+                yield Static("[bold #cba6f7]WiFi Scan[/bold #cba6f7]", id="scan-title")
+                yield ScanStatsBar(id="scan-stats")
             table = DataTable(id="scan-table", show_cursor=True)
-            table.add_columns(
-                "BSSID", "CH", "Signal", "Rate", "Privacy", "Cipher", "ESSID", "WPS", "Clients"
-            )
             yield table
             yield Static(
-                " [dim]Enter: select  s: stop  j/k: navigate  Esc: back[/dim]",
-                id="hints",
+                "[#585b70]  Enter[/#585b70][#a6adc8] select[/#a6adc8]"
+                "  [#585b70]s[/#585b70][#a6adc8] stop[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="scan-hints",
             )
+        yield StatusBar(id="scan-status-bar")
         yield Footer()
 
     def on_mount(self) -> None:
         self.scanning = True
-        self.call_after_refresh(self._update_status)
+        self._timer = self.set_interval(1.0, self._tick)
+        self.call_after_refresh(self._setup_columns)
+
         if hasattr(self.app, "_adapter_manager") and self.app._adapter_manager:
             adapter = self.app._adapter_manager.get_best_for_operation("scan")
             if adapter:
                 from ..core.scanner import ScanEngine
                 self._scan_engine = ScanEngine()
-                
+
                 async def run_scan():
                     try:
                         await self._scan_engine.scan(mon_iface=adapter.iface, on_network=lambda n: self.call_from_thread(self.add_network, n))
                     except Exception as e:
                         self.app.notify(f"Scan failed: {e}", severity="error")
-                
+
                 import asyncio
                 self.scan_task = asyncio.create_task(run_scan())
 
-    def _update_status(self) -> None:
-        status = self.query_one("#scan-status", Static)
-        if self.scanning:
-            status.update(f"[green]SCANNING...[/green] ({self.network_count} networks)")
+    def _setup_columns(self) -> None:
+        table = self.query_one("#scan-table", DataTable)
+        w, _ = self.app.size
+        table.clear(columns=True)
+        table.add_column("BSSID", width=17)
+        table.add_column("CH", width=3)
+        table.add_column("Signal", width=10)
+        table.add_column("Rate", width=8)
+        table.add_column("Privacy", width=7)
+        table.add_column("Cipher", width=7)
+        table.add_column("ESSID", width=20)
+        if w >= 100:
+            table.add_column("WPS", width=4)
+            table.add_column("Clients", width=3)
         else:
-            status.update(f"[yellow]STOPPED[/yellow] ({self.network_count} networks)")
+            self.app.notify("Some columns hidden. Resize to 100+ for full view.", severity="warning")
+
+    def on_resize(self, event) -> None:
+        self.call_after_refresh(self._setup_columns)
+
+    def _tick(self) -> None:
+        if self.scanning:
+            self.elapsed += 1
+        h, m, s = self.elapsed // 3600, (self.elapsed % 3600) // 60, self.elapsed % 60
+        stats = self.query_one("#scan-stats", ScanStatsBar)
+        stats.networks = self.network_count
+        stats.clients = sum(1 for c in self.app.session.clients)
+        stats.elapsed = f"{m:02d}:{s:02d}"
+
+        # Update status bar
+        sbar = self.query_one("#scan-status-bar", StatusBar)
+        sbar.elapsed = f"{h:02d}:{m:02d}:{s:02d}"
+        if hasattr(self.app, "_adapter_manager") and self.app._adapter_manager:
+            best = self.app._adapter_manager.get_best_for_operation("scan")
+            if best:
+                sbar.adapter = best.iface
+                sbar.mode = best.current_mode
+                sbar.channel = str(best.current_mode) # or whatever the adapter channel is
+
+    def _update_status(self) -> None:
+        pass
 
     def add_network(self, network) -> None:
         """Add or update a network in the scan table."""
@@ -247,18 +338,21 @@ class ScanScreen(Screen):
         sc = signal_color(network.signal)
         pc = privacy_color(network.privacy)
         row_key = network.bssid
+        w, _ = self.app.size
 
-        row_data = (
-            f"[dim]{network.bssid}[/dim]",
-            f"[cyan]{network.channel}[/cyan]",
+        row_data = [
+            f"[#585b70]{network.bssid}[/#585b70]",
+            f"[#89dceb]{network.channel}[/#89dceb]",
             f"{bar} [{sc}]{network.signal}[/{sc}]",
             "",
             f"[{pc}]{network.privacy}[/{pc}]",
             network.cipher,
-            f"[bold]{network.display_name()}[/bold]",
-            "[green]WPS[/green]" if network.wps else "",
-            "",
-        )
+            f"[#cdd6f4]{network.display_name()}[/#cdd6f4]"
+        ]
+        if w >= 100:
+            row_data.append("[#a6e3a1]✓[/#a6e3a1]" if network.wps else "")
+            row_data.append("")
+
         try:
             for i, data in enumerate(row_data):
                 col_key = list(table.columns.keys())[i]
@@ -267,10 +361,11 @@ class ScanScreen(Screen):
             table.add_row(*row_data, key=row_key)
 
         self.network_count = len(table.rows)
-        self._update_status()
 
     def action_back(self) -> None:
         self.action_stop_scan()
+        if hasattr(self, "_timer"):
+            self._timer.stop()
         self.app.pop_screen()
 
     def action_stop_scan(self) -> None:
@@ -280,7 +375,7 @@ class ScanScreen(Screen):
         if hasattr(self, "_scan_engine") and self._scan_engine:
             import asyncio
             asyncio.create_task(self._scan_engine.stop_and_wait())
-        self._update_status()
+
 
     def action_cursor_down(self) -> None:
         table = self.query_one("#scan-table", DataTable)
@@ -291,13 +386,19 @@ class ScanScreen(Screen):
         table.action_scroll_up()
 
     def action_select_target(self) -> None:
-        """Push capture method selection with the selected network."""
+        """Push AP details screen with the selected network."""
         table = self.query_one("#scan-table", DataTable)
         if table.cursor_row >= 0:
             row_keys = list(table.rows.keys())
             if table.cursor_row < len(row_keys):
                 bssid = row_keys[table.cursor_row].value
-                network = next((n for n in self.app.session.scan_results if n.bssid == bssid), None)
+                # Match from the active scan engine or current session scan results
+                network = None
+                if hasattr(self, "_scan_engine") and self._scan_engine:
+                    network = next((n for n in self._scan_engine.networks if n.bssid == bssid), None)
+                if not network:
+                    network = next((n for n in self.app.session.scan_results if n.bssid == bssid), None)
+                
                 if network:
                     self.app.session.selected_target = network
                     screen_cls = globals().get("APDetailsScreen")
@@ -318,13 +419,19 @@ class TargetSelectScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
-            yield Static("[bold cyan]Select Target Network[/bold cyan]\n")
+        yield Header(show_clock=True)
+        with Vertical(id="sc-target"):
+            yield Static("[bold #cba6f7]Select Target Network[/bold #cba6f7]", id="target-title")
+            yield Static("[#585b70]──────────────────────[/#585b70]", id="target-divider")
             table = DataTable(id="target-table", show_cursor=True)
             table.add_columns("BSSID", "CH", "Signal", "Privacy", "ESSID", "Clients")
             yield table
-            yield Static(" [dim]Enter: select  j/k: navigate  Esc: back[/dim]")
+            yield Static(
+                "[#585b70]  Enter[/#585b70][#a6adc8] select[/#a6adc8]"
+                "  [#585b70]j/k[/#585b70][#a6adc8] navigate[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="target-hints",
+            )
         yield Footer()
 
     def action_back(self) -> None:
@@ -416,34 +523,53 @@ class CaptureMethodScreen(Screen):
         Binding("4", "method_4", "WPS"),
         Binding("5", "method_5", "EvilTwin"),
         Binding("escape", "back", "Back"),
-        Binding("j", "cursor_down", "Down", show=False),
-        Binding("k", "cursor_up", "Up", show=False),
     ]
 
     selected_idx: reactive[int] = reactive(0)
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Horizontal():
-            with Vertical(id="method-list", classes="panel"):
-                yield Static("[bold cyan]Capture Method[/bold cyan]\n")
+        yield Header(show_clock=True)
+        with Horizontal(id="sc-method"):
+            with Vertical(id="method-list"):
+                yield Static("[bold #cba6f7]Capture Method[/bold #cba6f7]", id="method-title")
+                yield Static("[#45475a]──────────────[/#45475a]")
                 for m in CAPTURE_METHODS:
-                    risk_c = {"safe": "green", "caution": "yellow", "dangerous": "red"}.get(
-                        m["risk_level"], "white"
-                    )
+                    risk_colors = {"safe": "#a6e3a1", "caution": "#f9e2af", "dangerous": "#f38ba8"}
+                    rc = risk_colors.get(m["risk_level"], "#cdd6f4")
                     t = Text()
-                    t.append("[")
-                    t.append(m["key"], style="bold magenta")
-                    t.append("] ")
-                    t.append(m["name"], style="bold")
-                    t.append("\n     ")
-                    t.append(m["short"])
-                    t.append(f"\n     Risk: {m['risk_level'].upper()}", style=risk_c)
-                    yield Static(t, classes="menu-item", id=f"method-{m['key']}")
-                yield Static(" [dim]1-5: select  Esc: back[/dim]")
-            with Vertical(id="tooltip-area", classes="panel"):
-                m = CAPTURE_METHODS[self.selected_idx]
-                yield TooltipPanel(
+                    t.append(" [", style="#585b70")
+                    t.append(m["key"], style="bold #cba6f7")
+                    t.append("] ", style="#585b70")
+                    t.append(m["name"], style="bold #cdd6f4")
+                    t.append(f"\n    {m['short']}", style="#a6adc8")
+                    t.append(f"\n    Risk: ", style="#585b70")
+                    t.append(m['risk_level'].upper(), style=rc)
+                    yield Static(t, id=f"method-{m['key']}")
+                yield Static(
+                    "[#585b70]  1-5[/#585b70][#a6adc8] select[/#a6adc8]"
+                    "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                    id="method-hints",
+                )
+            with Vertical(id="tooltip-panel"):
+                # Initial render container
+                yield Static("", id="tooltip-container")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.watch_selected_idx(self.selected_idx)
+
+    def watch_selected_idx(self, idx: int) -> None:
+        try:
+            m = CAPTURE_METHODS[idx]
+            container = self.query_one("#tooltip-panel", Vertical)
+            # Remove old tooltip if exists
+            try:
+                old = self.query_one("#tooltip")
+                old.remove()
+            except Exception:
+                pass
+            container.mount(
+                TooltipPanel(
                     name=m["name"],
                     description=m["description"],
                     when_to_use=m["when_to_use"],
@@ -452,31 +578,45 @@ class CaptureMethodScreen(Screen):
                     requires=", ".join(m["requires"]),
                     id="tooltip",
                 )
-        yield Footer()
+            )
+        except Exception:
+            pass
 
     def action_method_1(self) -> None:
-        self.app.push_screen(CaptureProgressScreen(method="passive"))
+        self.selected_idx = 0
+        self.app.push_screen(CaptureProgressScreen(
+            target=self.app.session.selected_target,
+            method="passive"
+        ))
 
     def action_method_2(self) -> None:
+        self.selected_idx = 1
         self.app.push_screen(DeauthSelectScreen())
 
     def action_method_3(self) -> None:
-        self.app.push_screen(CaptureProgressScreen(method="pmkid"))
+        self.selected_idx = 2
+        self.app.push_screen(CaptureProgressScreen(
+            target=self.app.session.selected_target,
+            method="pmkid"
+        ))
 
     def action_method_4(self) -> None:
-        self.app.push_screen(CaptureProgressScreen(method="wps"))
+        self.selected_idx = 3
+        self.app.push_screen(CaptureProgressScreen(
+            target=self.app.session.selected_target,
+            method="wps"
+        ))
 
     def action_method_5(self) -> None:
-        self.app.push_screen(CaptureProgressScreen(method="evil_twin"))
+        self.selected_idx = 4
+        self.app.push_screen(CaptureProgressScreen(
+            target=self.app.session.selected_target,
+            method="evil_twin"
+        ))
 
     def action_back(self) -> None:
         self.app.pop_screen()
 
-    def action_cursor_down(self) -> None:
-        self.selected_idx = min(self.selected_idx + 1, len(CAPTURE_METHODS) - 1)
-
-    def action_cursor_up(self) -> None:
-        self.selected_idx = max(self.selected_idx - 1, 0)
 
 
 # ── Capture Progress Screen ───────────────────────────────────────────────────
@@ -501,20 +641,19 @@ class CaptureProgressScreen(Screen):
     elapsed: reactive[int] = reactive(0)
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
+        from .components import AttackProgressPanel
+        yield Header(show_clock=True)
+        with Vertical(id="sc-capture"):
             yield Static(
-                f"[bold cyan]Capturing Handshake[/bold cyan] — Method: [yellow]{self.method.title()}[/yellow]\n"
+                f"[bold #cba6f7]Capturing Handshake[/bold #cba6f7]",
+                id="capture-title",
             )
-            with Horizontal():
-                with Vertical(id="stats-panel", classes="panel"):
-                    yield Static(id="capture-stats")
-                with Vertical(id="eapol-panel", classes="panel"):
-                    yield EAPOLTracker(id="eapol-tracker")
+            yield Static("[#45475a]──────────────────────────────────────────────────[/#45475a]")
+            yield AttackProgressPanel(method=self.method, id="attack-panel")
             yield ProgressBar(id="capture-progress", total=100)
             yield Static(
-                " [dim]Esc: stop capture  Ctrl+C: stop[/dim]",
-                id="hints",
+                "[#585b70]  Esc[/#585b70][#a6adc8] stop capture[/#a6adc8]",
+                id="capture-hints",
             )
         yield Footer()
 
@@ -523,22 +662,26 @@ class CaptureProgressScreen(Screen):
 
     def _tick(self) -> None:
         self.elapsed += 1
-        stats = self.query_one("#capture-stats", Static)
-        h, m, s = self.elapsed // 3600, (self.elapsed % 3600) // 60, self.elapsed % 60
-        stats.update(
-            f"Beacons:  [cyan]{self.beacons}[/cyan]\n"
-            f"Data:     [cyan]{self.data_pkts}[/cyan]\n"
-            f"Signal:   {signal_bar(self.signal)} {self.signal}dBm\n"
-            f"Elapsed:  [cyan]{h:02d}:{m:02d}:{s:02d}[/cyan]\n"
-        )
+        try:
+            panel = self.query_one("#attack-panel", AttackProgressPanel)
+            panel.beacons = self.beacons
+            panel.data_pkts = self.data_pkts
+            panel.signal = self.signal
+            panel.refresh()
+        except Exception:
+            pass
 
     def update_eapol(
         self, m1: bool, m2: bool, m3: bool, m4: bool, status: str
     ) -> None:
         """Update EAPOL tracker from external event."""
-        tracker = self.query_one("#eapol-tracker", EAPOLTracker)
-        tracker.m1, tracker.m2, tracker.m3, tracker.m4 = m1, m2, m3, m4
-        tracker.status = status
+        try:
+            panel = self.query_one("#attack-panel", AttackProgressPanel)
+            panel.m1, panel.m2, panel.m3, panel.m4 = m1, m2, m3, m4
+            panel.status = status
+            panel.refresh()
+        except Exception:
+            pass
 
     def action_stop(self) -> None:
         if hasattr(self, "_timer"):
@@ -556,45 +699,66 @@ class DeauthSelectScreen(Screen):
         Binding("enter", "confirm", "Confirm"),
         Binding("space", "toggle", "Toggle"),
         Binding("a", "select_all", "Select All"),
-        Binding("j", "cursor_down", "Down", show=False),
-        Binding("k", "cursor_up", "Up", show=False),
+        Binding("plus", "rate_up", "Rate +"),
+        Binding("minus", "rate_down", "Rate -"),
     ]
 
     rate: reactive[int] = reactive(10)
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
-            yield Static("[bold cyan]Select Deauth Targets[/bold cyan]\n")
+        yield Header(show_clock=True)
+        with Vertical(id="sc-deauth"):
+            yield Static("[bold #cba6f7]Select Deauth Targets[/bold #cba6f7]", id="deauth-title")
+            yield Static("[#45475a]────────────────────[/#45475a]")
             table = DataTable(id="client-table", show_cursor=True)
-            table.add_columns("[SEL]", "MAC", "Signal", "Packets")
             yield table
             yield Static(id="rate-display")
             yield Static(
-                " [dim]Space: toggle  a: all  Enter: confirm  j/k: navigate  Esc: back[/dim]"
+                "[#585b70]  Space[/#585b70][#a6adc8] toggle[/#a6adc8]"
+                "  [#585b70]a[/#585b70][#a6adc8] select all[/#a6adc8]"
+                "  [#585b70]+/-[/#585b70][#a6adc8] rate[/#a6adc8]"
+                "  [#585b70]Enter[/#585b70][#a6adc8] confirm[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="deauth-hints",
             )
         yield Footer()
 
     def on_mount(self) -> None:
+        table = self.query_one("#client-table", DataTable)
+        table.add_column("SEL", width=4)
+        table.add_column("MAC", width=17)
+        table.add_column("Vendor", width=15)
+        table.add_column("Signal", width=10)
+        table.add_column("Packets", width=6)
         self._update_rate_display()
 
     def _update_rate_display(self) -> None:
         rd = self.query_one("#rate-display", Static)
-        rd.update(f"\n Deauth rate: [cyan]{self.rate}[/cyan] frames/burst  [dim](+/- to adjust)[/dim]")
+        rd.update(f"[#585b70]  Deauth rate[/#585b70]  [#89b4fa]{self.rate}[/#89b4fa][#a6adc8] frames/burst[/#a6adc8]  [#585b70]+/- to adjust[/#585b70]")
+
+    def action_rate_up(self) -> None:
+        self.rate = min(self.rate + 5, 50)
+        self._update_rate_display()
+
+    def action_rate_down(self) -> None:
+        self.rate = max(self.rate - 5, 5)
+        self._update_rate_display()
 
     def add_client(self, mac: str, signal: int, packets: int) -> None:
         table = self.query_one("#client-table", DataTable)
-        # Fingerprint the client
+        vendor = "Unknown"
         try:
             from ..core.fingerprint import Fingerprinter
             fp = Fingerprinter()
             device = fp.fingerprint_client(mac)
-            vendor_label = f" [dim]({device.vendor})[/dim]" if device.vendor != "Unknown" else ""
+            vendor = device.vendor
         except Exception:
-            vendor_label = ""
+            pass
+        
         table.add_row(
-            "[green]*[/green]",  # Default: selected
-            f"[dim]{mac}[/dim]{vendor_label}",
+            "[#a6e3a1]*[/#a6e3a1]",  # Default: selected
+            f"[#585b70]{mac}[/#585b70]",
+            vendor[:15],
             f"{signal_bar(signal)} {signal}",
             str(packets),
             key=mac,
@@ -604,14 +768,16 @@ class DeauthSelectScreen(Screen):
         table = self.query_one("#client-table", DataTable)
         if table.cursor_row >= 0:
             row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key
-            current = table.get_cell(row_key, "[SEL]")
-            new_val = "[dim] [/dim]" if "*" in str(current) else "[green]*[/green]"
-            table.update_cell(row_key, "[SEL]", new_val, update_width=False)
+            col_key = list(table.columns.keys())[0]
+            current = table.get_cell(row_key, col_key)
+            new_val = "[#585b70]·[/#585b70]" if "*" in str(current) else "[#a6e3a1]*[/#a6e3a1]"
+            table.update_cell(row_key, col_key, new_val, update_width=False)
 
     def action_select_all(self) -> None:
         table = self.query_one("#client-table", DataTable)
+        col_key = list(table.columns.keys())[0]
         for row_key in table.rows:
-            table.update_cell(row_key, "[SEL]", "[green]*[/green]", update_width=False)
+            table.update_cell(row_key, col_key, "[#a6e3a1]*[/#a6e3a1]", update_width=False)
 
     def action_confirm(self) -> None:
         table = self.query_one("#client-table", DataTable)
@@ -633,12 +799,6 @@ class DeauthSelectScreen(Screen):
     def action_back(self) -> None:
         self.app.pop_screen()
 
-    def action_cursor_down(self) -> None:
-        self.query_one(DataTable).action_scroll_down()
-
-    def action_cursor_up(self) -> None:
-        self.query_one(DataTable).action_scroll_up()
-
 
 # ── Crack Progress Screen ─────────────────────────────────────────────────────
 
@@ -656,15 +816,16 @@ class CrackProgressScreen(Screen):
     eta: reactive[str] = reactive("unknown")
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
-            yield Static("[bold cyan]Cracking Password[/bold cyan]\n")
-            with Vertical(classes="panel"):
+        yield Header(show_clock=True)
+        with Vertical(id="sc-crack"):
+            yield Static("[bold #cba6f7]Cracking Password[/bold #cba6f7]", id="crack-title")
+            yield Static("[#45475a]────────────────[/#45475a]")
+            with Vertical(id="crack-stats-panel"):
                 yield Static(id="crack-stats")
                 yield ProgressBar(id="crack-progress", total=100)
             yield Static(
-                " [dim]Esc: stop cracking[/dim]",
-                id="hints",
+                "[#585b70]  Esc[/#585b70][#a6adc8] stop cracking[/#a6adc8]",
+                id="crack-hints",
             )
         yield Footer()
 
@@ -675,10 +836,10 @@ class CrackProgressScreen(Screen):
         stats = self.query_one("#crack-stats", Static)
         pct = (self.keys_tested / self.keys_total * 100) if self.keys_total > 0 else 0
         stats.update(
-            f"Keys tested: [cyan]{self.keys_tested:,}[/cyan] / {self.keys_total:,}\n"
-            f"Speed:       [cyan]{self.speed:,.0f}[/cyan] keys/sec\n"
-            f"ETA:         [cyan]{self.eta}[/cyan]\n"
-            f"Current:     [dim]{self.current_key or '...'}[/dim]\n"
+            f"[#585b70]Keys tested[/#585b70]  [#89dceb]{self.keys_tested:,}[/#89dceb][#585b70] / [/#585b70][#cdd6f4]{self.keys_total:,}[/#cdd6f4]\n"
+            f"[#585b70]Speed      [/#585b70]  [#89dceb]{self.speed:,.0f}[/#89dceb][#a6adc8] keys/sec[/#a6adc8]\n"
+            f"[#585b70]ETA        [/#585b70]  [#89dceb]{self.eta}[/#89dceb]\n"
+            f"[#585b70]Current    [/#585b70]  [#585b70]{self.current_key or '...'}[/#585b70]\n"
         )
         pbar = self.query_one("#crack-progress", ProgressBar)
         pbar.progress = pct
@@ -740,25 +901,30 @@ class ResultScreen(Screen):
         self._keys = keys_tested
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
-            yield Static(
-                f"\n[bold green]* PASSWORD FOUND![/bold green]\n",
-                id="result-title",
-            )
-            yield Static(
-                f" ┌─ RESULT ────────────────────────────────────────────────────────┐\n"
-                f" │  SSID:     [bold]{self._ssid}[/bold]\n"
-                f" │  BSSID:    [dim]{self._bssid}[/dim]\n"
-                f" │  Password: [bold green]{self._password}[/bold green]\n"
-                f" │  Method:   {self._method}\n"
-                f" │  Keys:     {self._keys:,} tested\n"
-                f" └────────────────────────────────────────────────────────┘",
-                id="result-card",
-            )
-            yield Static(
-                "\n [1] Save to file  [2] Copy to clipboard  [4] Attack another  [6] Main menu"
-            )
+        from .components import PasswordCard
+        yield Header(show_clock=True)
+        with Vertical(id="sc-result"):
+            yield Spacer(flex=1)
+            with Center():
+                yield PasswordCard(
+                    ssid=self._ssid,
+                    bssid=self._bssid,
+                    password=self._password,
+                    method=self._method,
+                    keys=self._keys,
+                    elapsed=0.0, # We can pass session elapsed or mock it
+                    id="result-card",
+                )
+            yield Spacer(height=1)
+            with Center():
+                yield Static(
+                    "[#585b70]  1[/#585b70][#a6adc8] save to file[/#a6adc8]"
+                    "  [#585b70]2[/#585b70][#a6adc8] copy to clipboard[/#a6adc8]"
+                    "  [#585b70]4[/#585b70][#a6adc8] attack another[/#a6adc8]"
+                    "  [#585b70]6[/#585b70][#a6adc8] main menu[/#a6adc8]",
+                    id="result-hints",
+                )
+            yield Spacer(flex=1)
         yield Footer()
 
     async def action_copy(self) -> None:
@@ -842,8 +1008,8 @@ class ErrorScreen(Screen):
         self._raw = raw_error
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
+        yield Header(show_clock=True)
+        with Vertical(id="sc-error"):
             yield ErrorCard(
                 severity=self._sev,
                 what=self._what,
@@ -851,7 +1017,11 @@ class ErrorScreen(Screen):
                 how_to_fix=self._how,
                 raw_error=self._raw,
             )
-            yield Static(" [dim]Enter/Esc: dismiss[/dim]")
+            yield Static(
+                "[#585b70]  Enter[/#585b70][#a6adc8] dismiss[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] dismiss[/#a6adc8]",
+                id="error-hints",
+            )
         yield Footer()
 
     def action_back(self) -> None:
@@ -861,52 +1031,58 @@ class ErrorScreen(Screen):
 # ── Help Screen ───────────────────────────────────────────────────────────────
 
 TUTORIAL = """\
-[bold cyan]Welcome to Sidewinder![/bold cyan]
+ [#89b4fa]┌─ Welcome to Sidewinder ──────────────────────────────────────────┐[/#89b4fa]
+ [#89b4fa]│[/#89b4fa]  A native Linux WiFi audit tool. Zero bloat, terminal-first.   [#89b4fa]│[/#89b4fa]
+ [#89b4fa]└──────────────────────────────────────────────────────────────────┘[/#89b4fa]
 
-A native Linux WiFi audit tool. Zero bloat, terminal-first.
+ [#cba6f7]Phase 1 · Scan[/#cba6f7]
+ [#45475a]──────────────[/#45475a]
+   [#585b70]1.[/#585b70]  Press [bold #cba6f7][1][/bold #cba6f7] from the main menu to start a live scan
+   [#585b70]2.[/#585b70]  Networks appear automatically (auto-hops all channels)
+   [#585b70]3.[/#585b70]  Press [bold #cdd6f4]Enter[/bold #cdd6f4] on a network to select it as the target
+   [#585b70]4.[/#585b70]  Press [bold #cdd6f4]s[/bold #cdd6f4] to stop scanning and move to capture
 
-[bold]Phase 1: Scan[/bold]
-  1. Press [bold magenta][1][/bold magenta] from the main menu to scan
-  2. Wait for networks to appear (auto-hops all channels)
-  3. Press [bold]Enter[/bold] to select your target
-  4. Press [bold]s[/bold] to stop scanning
+ [#cba6f7]Phase 2 · Capture[/#cba6f7]
+ [#45475a]─────────────────[/#45475a]
+   [#585b70]1.[/#585b70]  Choose your method:
+       [bold #cba6f7][1][/bold #cba6f7]  [#a6e3a1]Passive[/#a6e3a1]  — Listen quietly for a natural handshake
+       [bold #cba6f7][2][/bold #cba6f7]  [#f9e2af]Deauth[/#f9e2af]   — Force clients off, capture handshake fast
+   [#585b70]2.[/#585b70]  Watch the [#89b4fa]EAPOL M1→M2→M3→M4[/#89b4fa] tracker fill in
+   [#585b70]3.[/#585b70]  Capture stops automatically when handshake is complete
 
-[bold]Phase 2: Capture[/bold]
-  1. Choose capture method:
-     [bold magenta][1][/bold magenta] Passive — wait for natural handshake (stealthy)
-     [bold magenta][2][/bold magenta] Deauth — kick clients to force handshake (fast)
-  2. Watch the EAPOL M1-M4 tracker
-  3. Capture stops automatically when handshake is detected
+ [#cba6f7]Phase 3 · Crack[/#cba6f7]
+ [#45475a]───────────────[/#45475a]
+   [#585b70]1.[/#585b70]  Pick a wordlist (Sidewinder auto-discovers system lists)
+   [#585b70]2.[/#585b70]  Choose engine: [#89dceb]aircrack-ng[/#89dceb] (CPU) or [#cba6f7]hashcat[/#cba6f7] (GPU)
+   [#585b70]3.[/#585b70]  Watch the progress bar and key-rate counter
+   [#585b70]4.[/#585b70]  Password appears in [bold #a6e3a1]green[/bold #a6e3a1] when found
 
-[bold]Phase 3: Crack[/bold]
-  1. Select wordlist (auto-discovered from system)
-  2. Choose tool: aircrack-ng (CPU) or hashcat (GPU)
-  3. Watch the progress bar
-  4. Password appears in green when found
+ [#cba6f7]Phase 4 · Cleanup[/#cba6f7]
+ [#45475a]─────────────────[/#45475a]
+   [#585b70]1.[/#585b70]  Press [bold #cba6f7][6][/bold #cba6f7] from the main menu
+   [#585b70]2.[/#585b70]  Confirm capture file deletion
+   [#585b70]3.[/#585b70]  NetworkManager and wpa_supplicant are restored automatically
+   [#585b70]4.[/#585b70]  Exit safely
 
-[bold]Phase 4: Cleanup[/bold]
-  1. Press [bold magenta][6][/bold magenta] from main menu
-  2. Confirm file deletion
-  3. NM/wpa_supplicant restored automatically
-  4. Exit safely
+ [#cba6f7]Keyboard Reference[/#cba6f7]
+ [#45475a]──────────────────[/#45475a]
+   [bold #cdd6f4]j / k[/bold #cdd6f4]      Navigate up / down
+   [bold #cdd6f4]Enter[/bold #cdd6f4]      Select or confirm
+   [bold #cdd6f4]Esc[/bold #cdd6f4]        Back or cancel
+   [bold #cdd6f4]/[/bold #cdd6f4]          Open command palette
+   [bold #cdd6f4]?[/bold #cdd6f4]          This help screen
+   [bold #cdd6f4]1 – 7[/bold #cdd6f4]      Quick menu access
+   [bold #cdd6f4]s[/bold #cdd6f4]          Stop active scan
+   [bold #cdd6f4]Space[/bold #cdd6f4]      Toggle checkbox (deauth screen)
+   [bold #cdd6f4]a[/bold #cdd6f4]          Select all (deauth screen)
 
-[bold]Keyboard Reference:[/bold]
-  j/k      Navigate up/down
-  Enter    Select/confirm
-  Esc      Back/cancel
-  /        Command palette
-  ?        This help screen
-  1-7      Quick menu access
-  s        Stop scan
-  Space    Toggle checkbox
-  a        Select all
+ [#cba6f7]Adapter Priority[/#cba6f7]
+ [#45475a]────────────────[/#45475a]
+   [#a6e3a1]1st[/#a6e3a1]  RTL8821AU — Full monitor + injection + 5GHz
+   [#f9e2af]2nd[/#f9e2af]  RT5370    — 2.4GHz, reliable, no extra driver needed
+   [#f38ba8]3rd[/#f38ba8]  MT7902    — Internet only, no injection
 
-[bold]Adapter Priority:[/bold]
-  1st: RTL8821AU (morrownr) — full monitor + injection + 5GHz
-  2nd: RT5370 — 2.4GHz, reliable, no extra driver needed
-  3rd: MT7902 (built-in) — internet only, no injection
-
-[dim]Press Esc to close help[/dim]
+ [#585b70]Press Esc or q to close[/#585b70]
 """
 
 
@@ -919,8 +1095,8 @@ class HelpScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with ScrollableContainer():
+        yield Header(show_clock=True)
+        with VerticalScroll(id="help-scroll"):
             yield Static(TUTORIAL, id="tutorial-text")
         yield Footer()
 
@@ -947,30 +1123,27 @@ class ResumeScreen(Screen):
         self._session = session
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical(id="resume-container"):
-            yield Static("Previous session found", id="resume-title")
-            yield Static(" ", id="resume-spacer")
-
+        yield Header(show_clock=True)
+        with Vertical(id="sc-resume"):
+            yield Static("[bold #cba6f7]Previous Session Found[/bold #cba6f7]", id="resume-title")
+            yield Static("[#45475a]─────────────────────[/#45475a]")
             scan_count = len(self._session.scan_results)
             target = self._session.selected_target
             target_name = target.display_name() if target else "None"
             captures = len(self._session.captures)
             cracked = len(self._session.cracked_passwords)
-
-            summary_lines = [
-                f"  Session:  {self._session.id[:8]}...",
-                f"  Adapter:  {self._session.adapter or 'Not set'}",
-                f"  Scans:    {scan_count} networks found",
-                f"  Target:   {target_name}",
-                f"  Captures: {captures} files",
-                f"  Cracked:  {cracked} passwords",
-            ]
-            yield Static("\n".join(summary_lines), id="resume-summary")
-            yield Static(" ", id="resume-spacer2")
             yield Static(
-                "  [bold green]Y[/bold green]  Resume session\n"
-                "  [bold red]N[/bold red]  Start fresh",
+                f"[#585b70]  Session [/#585b70]  [#a6adc8]{self._session.id[:8]}...[/#a6adc8]\n"
+                f"[#585b70]  Adapter [/#585b70]  [#a6adc8]{self._session.adapter or 'Not set'}[/#a6adc8]\n"
+                f"[#585b70]  Scans   [/#585b70]  [#cdd6f4]{scan_count} networks[/#cdd6f4]\n"
+                f"[#585b70]  Target  [/#585b70]  [#cdd6f4]{target_name}[/#cdd6f4]\n"
+                f"[#585b70]  Captures[/#585b70]  [#cdd6f4]{captures} files[/#cdd6f4]\n"
+                f"[#585b70]  Cracked [/#585b70]  [#a6e3a1]{cracked} passwords[/#a6e3a1]",
+                id="resume-summary",
+            )
+            yield Static(
+                "[bold #a6e3a1]  Y[/bold #a6e3a1][#a6adc8]  Resume this session[/#a6adc8]\n"
+                "[bold #f38ba8]  N[/bold #f38ba8][#a6adc8]  Start fresh[/#a6adc8]",
                 id="resume-options",
             )
         yield Footer()
@@ -999,10 +1172,13 @@ class CommandPaletteScreen(Screen):
 
     def compose(self) -> ComposeResult:
         from .app import SLASH_COMMANDS
-        yield Header()
+        yield Header(show_clock=True)
         with Vertical(id="command-container"):
-            yield Static("[bold cyan]Command Palette[/bold cyan]\n")
-            yield Input(placeholder="Type a /command...", id="command-input")
+            yield Static(
+                "[bold #cba6f7]Command Palette[/bold #cba6f7]",
+                id="command-title",
+            )
+            yield Input(placeholder="/command…", id="command-input")
             
             options = [
                 Option(f"{cmd} - {desc}", id=cmd)
@@ -1052,6 +1228,11 @@ class CommandPaletteScreen(Screen):
         elif cmd_id == "/cleanup":
             if hasattr(self.app, "action_cleanup"):
                 self.app.action_cleanup()
+        elif cmd_id == "/theme":
+            current_theme = self.app.theme
+            next_theme = "classic" if current_theme == "opencode" else "opencode"
+            self.app.theme = next_theme
+            self.app.notify(f"Theme changed to {next_theme}", severity="information")
         elif cmd_id == "/quit":
             self.app.exit()
         else:
@@ -1071,12 +1252,18 @@ class WordlistPickerScreen(Screen):
     def compose(self) -> ComposeResult:
         from textual.widgets import DirectoryTree
         import os
-        
-        yield Header()
-        with Vertical():
-            yield Static("Select a wordlist (press Enter)", classes="panel-title")
+
+        yield Header(show_clock=True)
+        with Vertical(id="sc-wordlist"):
+            yield Static("[bold #cba6f7]Select Wordlist[/bold #cba6f7]", id="wordlist-title")
+            yield Static("[#45475a]──────────────[/#45475a]")
             path = "/usr/share/wordlists" if os.path.exists("/usr/share/wordlists") else "."
             yield DirectoryTree(path, id="wordlist-tree")
+            yield Static(
+                "[#585b70]  Enter[/#585b70][#a6adc8] select[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="wordlist-hints",
+            )
         yield Footer()
 
     def on_directory_tree_file_selected(self, event) -> None:
@@ -1099,12 +1286,21 @@ class EnginePickerScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical(id="engine-container"):
-            yield Static("[bold cyan]Select Cracking Engine[/bold cyan]\n")
+        yield Header(show_clock=True)
+        with Vertical(id="sc-engine"):
+            yield Static("[bold #cba6f7]Select Cracking Engine[/bold #cba6f7]", id="engine-title")
+            yield Static("[#45475a]──────────────────────[/#45475a]")
             yield Static(
-                "  [1] Aircrack-ng (CPU-based, standard)\n"
-                "  [2] Hashcat (GPU-based, requires setup)\n"
+                " [#585b70][[/#585b70][bold #cba6f7]1[/bold #cba6f7][#585b70]][/#585b70]  "
+                "[#cdd6f4]Aircrack-ng[/#cdd6f4][#a6adc8]  CPU-based, standard[/#a6adc8]\n"
+                " [#585b70][[/#585b70][bold #cba6f7]2[/bold #cba6f7][#585b70]][/#585b70]  "
+                "[#cdd6f4]Hashcat[/#cdd6f4][#a6adc8]     GPU-based, requires CUDA/ROCm[/#a6adc8]\n",
+                id="engine-options",
+            )
+            yield Static(
+                "[#585b70]  1/2[/#585b70][#a6adc8] select engine[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="engine-hints",
             )
         yield Footer()
 
@@ -1129,16 +1325,22 @@ class CleanupScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical(id="cleanup-container"):
-            yield Static("[bold cyan]System Cleanup[/bold cyan]\n")
+        yield Header(show_clock=True)
+        with Vertical(id="sc-cleanup"):
+            yield Static("[bold #cba6f7]System Cleanup[/bold #cba6f7]", id="cleanup-title")
+            yield Static("[#45475a]──────────────[/#45475a]")
             yield Static(
-                "The following actions will be performed:\n\n"
-                "  [ ] Restore NetworkManager / wpa_supplicant\n"
-                "  [ ] Disable Monitor Mode\n"
-                "  [ ] Terminate background attack processes\n"
-                "  [ ] Clear temporary capture files (/tmp/)\n\n"
-                "Press [bold green]Enter[/bold green] to confirm."
+                "[#a6adc8]The following actions will be performed:[/#a6adc8]\n\n"
+                "  [#585b70][ ][/#585b70]  Restore NetworkManager / wpa_supplicant\n"
+                "  [#585b70][ ][/#585b70]  Disable Monitor Mode\n"
+                "  [#585b70][ ][/#585b70]  Terminate background attack processes\n"
+                "  [#585b70][ ][/#585b70]  Clear temporary capture files (/tmp/)\n",
+                id="cleanup-body",
+            )
+            yield Static(
+                "[#585b70]  Enter[/#585b70][#a6e3a1] confirm cleanup[/#a6e3a1]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="cleanup-hints",
             )
         yield Footer()
 
@@ -1163,11 +1365,21 @@ class ServiceCheckScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical(id="service-container"):
-            yield Static("[bold cyan]Service Management[/bold cyan]\n")
-            yield Static("Checking for conflicting services (NetworkManager, wpa_supplicant)...")
+        yield Header(show_clock=True)
+        with Vertical(id="sc-services"):
+            yield Static("[bold #cba6f7]Service Management[/bold #cba6f7]", id="services-title")
+            yield Static("[#45475a]──────────────────[/#45475a]")
+            yield Static(
+                "[#a6adc8]Checking for conflicting services...[/#a6adc8]",
+                id="services-status",
+            )
             yield ListView(id="service-list")
+            yield Static(
+                "[#585b70]  k[/#585b70][#f38ba8] kill conflicting[/#f38ba8]"
+                "  [#585b70]r[/#585b70][#a6e3a1] restore[/#a6e3a1]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="services-hints",
+            )
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -1217,19 +1429,30 @@ class MonitorSetupScreen(Screen):
         self.adapter_name = adapter_name
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
-            yield Static(f"[bold cyan]Monitor Mode Setup for {self.adapter_name}[/bold cyan]\n")
+        yield Header(show_clock=True)
+        with Vertical(id="sc-monitor"):
+            yield Static(
+                f"[bold #cba6f7]Monitor Mode[/bold #cba6f7]  "
+                f"[#585b70]adapter[/#585b70] [#89dceb]{self.adapter_name}[/#89dceb]",
+                id="monitor-title",
+            )
+            yield Static("[#45475a]──────────────────────────────[/#45475a]")
             yield Static(id="monitor-status")
-
             from ..core.tooltips import get_tooltip
             tip = get_tooltip("monitor_mode")
             if tip:
                 yield Static(
-                    f"\n[dim cyan]{tip.title}[/dim cyan]: {tip.description}\n"
-                    f"[dim]{tip.example}[/dim]",
+                    f"[#cba6f7]{tip.title}[/#cba6f7]\n"
+                    f"[#a6adc8]{tip.description}[/#a6adc8]\n"
+                    f"[#585b70]{tip.example}[/#585b70]",
                     id="tooltip-info",
                 )
+            yield Static(
+                "[#585b70]  e[/#585b70][#a6e3a1] enable monitor[/#a6e3a1]"
+                "  [#585b70]d[/#585b70][#f38ba8] disable monitor[/#f38ba8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="monitor-hints",
+            )
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -1279,15 +1502,24 @@ class ScanOptionsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         from textual.widgets import Checkbox, Input
-        yield Header()
-        with Vertical(id="scan-options-container"):
-            yield Static("[bold cyan]Scan Options[/bold cyan]\n")
+        yield Header(show_clock=True)
+        with Vertical(id="sc-scanopts"):
+            yield Static("[bold #cba6f7]Scan Options[/bold #cba6f7]", id="scanopts-title")
+            yield Static("[#45475a]────────────[/#45475a]")
             yield Checkbox("2.4 GHz Band", value=True, id="band-2g")
             yield Checkbox("5 GHz Band", value=False, id="band-5g")
             yield Checkbox("6 GHz Band", value=False, id="band-6g")
-            yield Static("\nSpecific Channels (leave blank for all):")
-            yield Input(placeholder="e.g., 1,6,11", id="channels-input")
+            yield Static(
+                "[#a6adc8]Specific channels[/#a6adc8] [#585b70](leave blank for all)[/#585b70]",
+                id="channels-label",
+            )
+            yield Input(placeholder="e.g. 1,6,11", id="channels-input")
             yield Checkbox("Show Hidden SSIDs", value=True, id="show-hidden")
+            yield Static(
+                "[#585b70]  Enter[/#585b70][#a6adc8] start scan[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="scanopts-hints",
+            )
         yield Footer()
 
     def action_start_scan(self) -> None:
@@ -1313,32 +1545,50 @@ class APDetailsScreen(Screen):
         self.target = target
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
-            yield Static(f"[bold cyan]Access Point Details: {self.target.display_name()}[/bold cyan]\n")
-            yield Static(f"BSSID: {self.target.bssid}")
-            yield Static(f"Channel: {self.target.channel}")
-            yield Static(f"Signal: {self.target.signal} dBm")
-            yield Static(f"Encryption: {self.target.privacy} {self.target.cipher} {self.target.auth}")
-            yield Static(f"Data Packets: {self.target.data_packets}")
-            
+        yield Header(show_clock=True)
+        with VerticalScroll(id="sc-apdetails"):
+            yield Static(
+                f"[bold #cba6f7]Access Point Details[/bold #cba6f7]  "
+                f"[#cdd6f4]{self.target.display_name()}[/#cdd6f4]",
+                id="apdetails-title",
+            )
+            yield Static("[#45475a]──────────────────────────────[/#45475a]")
+            pc = privacy_color(self.target.privacy)
+            yield Static(
+                f"[#585b70]BSSID     [/#585b70]  [#585b70]{self.target.bssid}[/#585b70]\n"
+                f"[#585b70]Channel   [/#585b70]  [#89dceb]{self.target.channel}[/#89dceb]\n"
+                f"[#585b70]Signal    [/#585b70]  {signal_bar(self.target.signal)} [#cdd6f4]{self.target.signal} dBm[/#cdd6f4]\n"
+                f"[#585b70]Encryption[/#585b70]  [{pc}]{self.target.privacy}[/{pc}] [#a6adc8]{self.target.cipher} {self.target.auth}[/#a6adc8]\n"
+                f"[#585b70]Data Pkts [/#585b70]  [#a6adc8]{self.target.data_packets}[/#a6adc8]\n",
+                id="apdetails-info",
+            )
             client_count = sum(1 for c in self.app.session.clients if c.bssid == self.target.bssid)
-            yield Static(f"\nConnected Clients: {client_count}")
-
-            # Intelligence recommendations
+            yield Static(
+                f"[#cba6f7]Connected Clients[/#cba6f7]  [#cdd6f4]{client_count}[/#cdd6f4]",
+                id="apdetails-clients",
+            )
             from ..core.intelligence import IntelligenceEngine
             engine = IntelligenceEngine()
             target_clients = [c for c in self.app.session.clients if c.bssid == self.target.bssid]
             recs = engine.evaluate_target(self.target, target_clients)
             if recs:
-                yield Static("\n[bold cyan]Attack Recommendations[/bold cyan]")
+                yield Static(
+                    "[bold #cba6f7]Attack Recommendations[/bold #cba6f7]",
+                    id="apdetails-recs-title",
+                )
                 for r in recs:
-                    conf_c = "green" if r.confidence >= 70 else ("yellow" if r.confidence >= 40 else "red")
+                    conf_c = "#a6e3a1" if r.confidence >= 70 else ("#f9e2af" if r.confidence >= 40 else "#f38ba8")
                     yield Static(
-                        f"  [{conf_c}]{r.confidence}%[/{conf_c}] [bold]{r.method}[/bold] — {r.reason}"
+                        f"  [{conf_c}]{r.confidence}%[/{conf_c}]  "
+                        f"[#cdd6f4]{r.method}[/#cdd6f4]  [#a6adc8]{r.reason}[/#a6adc8]"
                     )
                     for w in r.warnings:
-                        yield Static(f"    [dim yellow]! {w}[/dim yellow]")
+                        yield Static(f"    [#f9e2af]! {w}[/#f9e2af]")
+            yield Static(
+                "[#585b70]  a[/#585b70][#a6adc8] attack this AP[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="apdetails-hints",
+            )
         yield Footer()
 
     def action_attack(self) -> None:
@@ -1362,15 +1612,18 @@ class CaptureListScreen(Screen):
 
     def compose(self) -> ComposeResult:
         from textual.widgets import DataTable
-        yield Header()
-        with Vertical():
-            yield Static("[bold cyan]Saved Captures[/bold cyan]", classes="panel-title")
+        yield Header(show_clock=True)
+        with Vertical(id="sc-captures"):
+            yield Static("[bold #cba6f7]Saved Captures[/bold #cba6f7]", id="captures-title")
+            yield Static("[#45475a]──────────────[/#45475a]")
             table = DataTable(id="captures-table", cursor_type="row")
-            table.add_columns("Filename", "Size (bytes)", "Modified")
+            table.add_columns("Filename", "Size", "Modified")
             yield table
             yield Static(
-                " [dim]Enter: crack  j/k: navigate  Esc: back[/dim]",
-                id="hints",
+                "[#585b70]  Enter[/#585b70][#a6adc8] crack selected[/#a6adc8]"
+                "  [#585b70]j/k[/#585b70][#a6adc8] navigate[/#a6adc8]"
+                "  [#585b70]Esc[/#585b70][#a6adc8] back[/#a6adc8]",
+                id="captures-hints",
             )
         yield Footer()
 

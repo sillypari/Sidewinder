@@ -10,12 +10,28 @@ from textual.reactive import reactive
 from textual.widgets import Static
 
 
+class Spacer(Static):
+    """A spacer widget for flexible TUI layouts."""
+    def __init__(self, flex: int | None = None, height: int | None = None, **kwargs) -> None:
+        super().__init__(**kwargs)
+        if flex is not None:
+            self.styles.height = f"{flex}fr"
+        elif height is not None:
+            self.styles.height = height
+
+
+
 # ── ASCII art logo ──────────────────────────────────────────────────────────
 
+# Two-tone logo: "SIDE" in bright text, "WINDER" in dim — exact opencode style
 LOGO: str = """\
-  ██████╗██╗██████╗ ███████╗██╗    ██╗██╗███╗   ██╗██████╗ ███████╗██████╗
-  ██╔════╝██║██╔══██╗██╔════╝██║    ██║██║████╗  ██║██╔══██╗██╔════╝██╔══██╗
-  ╚█████╗ ██║██║  ██║█████╗  ██║ █╗ ██║██║██╔██╗ ██║██║  ██║█████╗  ██████╔╝"""
+[#cdd6f4]                                      [/#cdd6f4][#585b70]                                                                  [/#585b70]
+[#cdd6f4]  ██████  ██████  ██████    ████████  [/#cdd6f4][#585b70]██          ██  ██████  ██      ██  ██████    ████████  ██████    [/#585b70]
+[#cdd6f4]██          ██    ██    ██  ██        [/#cdd6f4][#585b70]██          ██    ██    ████    ██  ██    ██  ██        ██    ██  [/#585b70]
+[#cdd6f4]  ████      ██    ██    ██  ██████    [/#cdd6f4][#585b70]██    ██    ██    ██    ██  ██  ██  ██    ██  ██████    ██████    [/#585b70]
+[#cdd6f4]      ██    ██    ██    ██  ██        [/#cdd6f4][#585b70]  ██  ██  ██      ██    ██    ████  ██    ██  ██        ██    ██  [/#585b70]
+[#cdd6f4]██████    ██████  ██████    ████████  [/#cdd6f4][#585b70]    ██  ██      ██████  ██      ██  ██████    ████████  ██    ██  [/#585b70]
+[#cdd6f4]                                      [/#cdd6f4][#585b70]                                                                  [/#585b70]"""
 
 
 # ── Pure helper functions ────────────────────────────────────────────────────
@@ -29,25 +45,18 @@ def signal_bar(signal: int) -> str:
     Returns:
         A Rich markup string with coloured block characters.
     """
-    # Normalise to 0-10 filled blocks
     if signal >= -50:
-        filled = 10
-        color = "green"
+        filled, color = 10, "#a6e3a1"   # Catppuccin green
     elif signal >= -60:
-        filled = 8
-        color = "green"
+        filled, color = 8,  "#a6e3a1"
     elif signal >= -70:
-        filled = 6
-        color = "yellow"
+        filled, color = 6,  "#f9e2af"   # Catppuccin yellow
     elif signal >= -80:
-        filled = 4
-        color = "yellow"
+        filled, color = 4,  "#f9e2af"
     elif signal >= -90:
-        filled = 2
-        color = "red"
+        filled, color = 2,  "#f38ba8"   # Catppuccin red
     else:
-        filled = 1
-        color = "red"
+        filled, color = 1,  "#f38ba8"
 
     bar = "█" * filled + "░" * (10 - filled)
     return f"[{color}]{bar}[/{color}]"
@@ -63,11 +72,11 @@ def signal_color(signal: int) -> str:
         Rich colour name string.
     """
     if signal > -50:
-        return "green"
+        return "#a6e3a1"   # Catppuccin green
     elif signal > -70:
-        return "yellow"
+        return "#f9e2af"   # Catppuccin yellow
     else:
-        return "red"
+        return "#f38ba8"   # Catppuccin red
 
 
 def privacy_color(privacy: str) -> str:
@@ -80,13 +89,13 @@ def privacy_color(privacy: str) -> str:
         Rich colour name string.
     """
     mapping: dict[str, str] = {
-        "OPN":  "red",
-        "WEP":  "yellow",
-        "WPA2": "green",
-        "WPA3": "cyan",
-        "WPA":  "bright_green",
+        "OPN":  "#f38ba8",   # red
+        "WEP":  "#f9e2af",   # yellow
+        "WPA2": "#a6e3a1",   # green
+        "WPA3": "#89dceb",   # sky
+        "WPA":  "#a6e3a1",   # green
     }
-    return mapping.get(privacy.upper(), "white")
+    return mapping.get(privacy.upper(), "#cdd6f4")
 
 
 def eapol_status_display(m1: bool, m2: bool, m3: bool, m4: bool) -> str:
@@ -105,7 +114,7 @@ def eapol_status_display(m1: bool, m2: bool, m3: bool, m4: bool) -> str:
     """
     def label(name: str, captured: bool) -> str:
         """Render a single EAPOL label."""
-        return f"[green bold]{name}[/]" if captured else f"[dim]{name}[/]"
+        return f"[#a6e3a1 bold]{name}[/#a6e3a1 bold]" if captured else f"[#585b70]{name}[/#585b70]"
 
     return f"{label('M1', m1)}  {label('M2', m2)}  {label('M3', m3)}  {label('M4', m4)}"
 
@@ -113,11 +122,11 @@ def eapol_status_display(m1: bool, m2: bool, m3: bool, m4: bool) -> str:
 # ── Widgets ──────────────────────────────────────────────────────────────────
 
 class LogoWidget(Static):
-    """Renders the Sidewinder ASCII-art logo in bold green."""
+    """Renders the opencode-style ASCII-art logo in two-tone white/dim."""
 
     def render(self) -> str:  # type: ignore[override]
         """Render the logo as Rich markup."""
-        return f"[bold green]{LOGO}[/bold green]"
+        return LOGO
 
 
 class AdapterStatusWidget(Static):
@@ -131,29 +140,25 @@ class AdapterStatusWidget(Static):
     channel: reactive[str | int] = reactive("--")
     mode: reactive[str] = reactive("managed")
 
-    def render(self) -> Panel:  # type: ignore[override]
-        """Render the adapter status panel."""
+    def render(self) -> str:  # type: ignore[override]
+        """Render the adapter status using Catppuccin Mocha palette."""
+        # Catppuccin Mocha semantic colors
         status_color = {
-            "ready":    "green",
-            "monitor":  "cyan",
-            "error":    "red",
-            "unknown":  "dim",
-        }.get(self.adapter_status.lower(), "white")
+            "ready":      "#a6e3a1",   # green
+            "optimized":  "#a6e3a1",   # green
+            "monitor":    "#89dceb",   # sky
+            "error":      "#f38ba8",   # red
+            "unknown":    "#585b70",   # surface2
+        }.get(self.adapter_status.lower(), "#cdd6f4")
 
-        lines = Text()
-        lines.append("Interface : ", style="bold")
-        lines.append(str(self.adapter_name), style="cyan")
-        lines.append("\n")
-        lines.append("Status    : ", style="bold")
-        lines.append(str(self.adapter_status).upper(), style=status_color)
-        lines.append("\n")
-        lines.append("Channel   : ", style="bold")
-        lines.append(str(self.channel), style="yellow")
-        lines.append("\n")
-        lines.append("Mode      : ", style="bold")
-        lines.append(str(self.mode).capitalize(), style="bright_blue")
+        mode_color = "#89dceb" if self.mode == "monitor" else "#89b4fa"  # sky / blue
 
-        return Panel(lines, title="[bold]Adapter Status[/bold]", border_style="dim white")
+        return (
+            f"[#585b70]Interface :[/#585b70] [#cdd6f4]{self.adapter_name}[/#cdd6f4]\n"
+            f"[#585b70]Status    :[/#585b70] [{status_color}]{self.adapter_status}[/{status_color}]\n"
+            f"[#585b70]Channel   :[/#585b70] [#f9e2af]{self.channel}[/#f9e2af]\n"
+            f"[#585b70]Mode      :[/#585b70] [{mode_color}]{self.mode}[/{mode_color}]"
+        )
 
 
 class ErrorCard(Static):
@@ -314,3 +319,127 @@ class EAPOLTracker(Static):
             title="[bold]EAPOL Capture[/bold]",
             border_style="green" if self.status == "complete" else "dim white",
         )
+
+
+class StatusBar(Static):
+    """Bottom status bar summarizing connection state and execution time."""
+    adapter: reactive[str] = reactive("--")
+    channel: reactive[str] = reactive("--")
+    mode: reactive[str] = reactive("managed")
+    signal: reactive[int] = reactive(-100)
+    elapsed: reactive[str] = reactive("00:00:00")
+
+    def render(self) -> str:
+        bar = signal_bar(self.signal)
+        sc = signal_color(self.signal)
+        return (
+            f" [#585b70]{self.adapter}[/#585b70] "
+            f"[#45475a]│[/#45475a] [#89dceb]Ch:{self.channel}[/#89dceb] "
+            f"[#45475a]│[/#45475a] [#cba6f7]{self.mode}[/#cba6f7] "
+            f"[#45475a]│[/#45475a] {bar} [{sc}]{self.signal} dBm[/{sc}] "
+            f"[#45475a]│[/#45475a] [#a6adc8]{self.elapsed}[/#a6adc8]"
+        )
+
+
+class ScanStatsBar(Static):
+    """Displays real-time network and client counts in top panel of ScanScreen."""
+    networks: reactive[int] = reactive(0)
+    clients: reactive[int] = reactive(0)
+    elapsed: reactive[str] = reactive("00:00")
+
+    def render(self) -> str:
+        return (
+            f" [#cba6f7]Networks[/#cba6f7] [#cdd6f4]{self.networks}[/#cdd6f4]  "
+            f"[#cba6f7]Clients[/#cba6f7] [#cdd6f4]{self.clients}[/#cdd6f4]  "
+            f"[#585b70]elapsed[/#585b70] [#a6adc8]{self.elapsed}[/#a6adc8]"
+        )
+
+
+class TargetCard(Static):
+    """Visual panel representing the selected Target Access Point."""
+    def __init__(self, target, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.target = target
+
+    def render(self) -> str:
+        pc = privacy_color(self.target.privacy)
+        bar = signal_bar(self.target.signal)
+        wps_status = "[#a6e3a1]YES[/#a6e3a1]" if self.target.wps else "[#f38ba8]NO[/#f38ba8]"
+        return (
+            f"[#cba6f7]Target: {self.target.display_name()}[/#cba6f7]\n"
+            f"[#585b70]BSSID[/#585b70]     {self.target.bssid}\n"
+            f"[#585b70]Channel[/#585b70]   [#89dceb]{self.target.channel}[/#89dceb]\n"
+            f"[#585b70]Signal[/#585b70]    {bar} [#cdd6f4]{self.target.signal} dBm[/#cdd6f4]\n"
+            f"[#585b70]Security[/#585b70]  [{pc}]{self.target.privacy}[/{pc}] [#a6adc8]({self.target.cipher}/{self.target.auth})[/#a6adc8]\n"
+            f"[#585b70]WPS[/#585b70]       {wps_status}"
+        )
+
+
+class ClientRow(Static):
+    """Client row showing selection checkmark, MAC, Vendor, Signal, and Packets count."""
+    def __init__(self, mac: str, vendor: str, signal: int, packets: int, selected: bool = True, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.mac = mac
+        self.vendor = vendor
+        self.signal = signal
+        self.packets = packets
+        self.selected = selected
+
+    def render(self) -> str:
+        sel = "[#a6e3a1]✓[/#a6e3a1]" if self.selected else "[#585b70]·[/#585b70]"
+        bar = signal_bar(self.signal)
+        vendor_lbl = f" [#585b70]({self.vendor})[/#585b70]" if self.vendor != "Unknown" else ""
+        return (
+            f" {sel}  [#cdd6f4]{self.mac}[/#cdd6f4]{vendor_lbl}  "
+            f"{bar} [#a6adc8]{self.signal}[/#a6adc8]  "
+            f"[#89dceb]{self.packets}[/#89dceb] pkts"
+        )
+
+
+class AttackProgressPanel(Static):
+    """Comprehensive panel tracking background packets and handshake capture status."""
+    def __init__(self, method: str, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.method = method
+        self.beacons = 0
+        self.data_pkts = 0
+        self.signal = -100
+        self.m1 = self.m2 = self.m3 = self.m4 = False
+        self.status = "waiting"
+
+    def render(self) -> str:
+        h = eapol_status_display(self.m1, self.m2, self.m3, self.m4)
+        bar = signal_bar(self.signal)
+        return (
+            f"[#cba6f7]Attack Engine: {self.method.upper()}[/#cba6f7]\n\n"
+            f"[#585b70]Beacons [/#585b70] [#89dceb]{self.beacons:,}[/#89dceb]\n"
+            f"[#585b70]Data    [/#585b70] [#89dceb]{self.data_pkts:,}[/#89dceb]\n"
+            f"[#585b70]Signal  [/#585b70] {bar} [#cdd6f4]{self.signal} dBm[/#cdd6f4]\n\n"
+            f"[#585b70]Handshake[/#585b70] {h}  [#a6adc8]({self.status.upper()})[/#a6adc8]"
+        )
+
+
+class PasswordCard(Static):
+    """Visual panel for ResultScreen exhibiting cracked credentials."""
+    def __init__(self, ssid: str, bssid: str, password: str, method: str, keys: int, elapsed: float, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.ssid = ssid
+        self.bssid = bssid
+        self.password = password
+        self.method = method
+        self.keys = keys
+        self.elapsed = elapsed
+
+    def render(self) -> str:
+        time_str = f"{int(self.elapsed // 60):02d}:{int(self.elapsed % 60):02d}"
+        return (
+            f"[#a6e3a1 bold]  ✓  PASSWORD CRACKED SUCCESSFULLY[/#a6e3a1 bold]\n"
+            f"[#45475a]  {'─'*44}[/#45475a]\n"
+            f"  [#585b70]SSID    [/#585b70]  [#cdd6f4]{self.ssid}[/#cdd6f4]\n"
+            f"  [#585b70]BSSID   [/#585b70]  [#585b70]{self.bssid}[/#585b70]\n"
+            f"  [#585b70]Password[/#585b70]  [bold #a6e3a1]{self.password}[/bold #a6e3a1]\n"
+            f"  [#585b70]Method  [/#585b70]  [#89dceb]{self.method}[/#89dceb]\n"
+            f"  [#585b70]Keys    [/#585b70]  [#a6adc8]{self.keys:,} tested[/#a6adc8]\n"
+            f"  [#585b70]Time    [/#585b70]  [#a6adc8]{time_str}[/#a6adc8]"
+        )
+

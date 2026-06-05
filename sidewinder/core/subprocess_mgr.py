@@ -229,15 +229,22 @@ class SubprocessManager:
         if proc.returncode is not None:
             return  # Already exited — nothing to do
         try:
-            pgid = os.getpgid(proc.pid)
-            os.killpg(pgid, signal.SIGTERM)
-            await asyncio.sleep(0.5)
-            if proc.returncode is None:
-                os.killpg(pgid, signal.SIGKILL)
+            if hasattr(os, "getpgid") and hasattr(os, "killpg") and hasattr(signal, "SIGKILL"):
+                pgid = os.getpgid(proc.pid)
+                os.killpg(pgid, signal.SIGTERM)
+                await asyncio.sleep(0.5)
+                if proc.returncode is None:
+                    os.killpg(pgid, signal.SIGKILL)
+            else:
+                proc.terminate()
+                await asyncio.sleep(0.5)
+                if proc.returncode is None:
+                    proc.kill()
         except ProcessLookupError:
             pass  # Process already gone
         except OSError as exc:
             logger.debug("Kill error (pid=%d): %s", proc.pid, exc)
+
 
 
 # ---------------------------------------------------------------------------

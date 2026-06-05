@@ -27,7 +27,8 @@ async def test_kill_conflicting():
         mock_find.return_value = [(123, "NetworkManager"), (456, "wpa_supplicant"), (789, "NetworkManager")]
         
         with patch("sidewinder.core.services.run", new_callable=AsyncMock) as mock_run, \
-             patch("os.kill") as mock_kill:
+             patch("os.kill") as mock_kill, \
+             patch("signal.SIGKILL", create=True):
             
             mock_run.return_value = ProcessResult(0, "", "")
             
@@ -41,6 +42,7 @@ async def test_kill_conflicting():
             
             assert mock_run.call_count == 2 # 2 unique services to systemctl stop
             assert mock_kill.call_count == 2 # 2 processes to os.kill
+
 
 @pytest.mark.asyncio
 async def test_restore_services():

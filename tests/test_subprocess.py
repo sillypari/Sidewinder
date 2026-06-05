@@ -32,8 +32,9 @@ async def test_run_timeout():
     mock_proc.pid = 12345
     
     with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \
-         patch("os.killpg") as mock_kill, \
-         patch("os.getpgid", return_value=12345):
+         patch("os.killpg", create=True) as mock_kill, \
+         patch("os.getpgid", create=True, return_value=12345), \
+         patch("signal.SIGKILL", create=True):
         
         mock_exec.return_value = mock_proc
         
@@ -57,8 +58,9 @@ async def test_stream():
     mock_proc.pid = 12345
     
     with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \
-         patch("os.killpg") as mock_kill, \
-         patch("os.getpgid", return_value=12345):
+         patch("os.killpg", create=True) as mock_kill, \
+         patch("os.getpgid", create=True, return_value=12345), \
+         patch("signal.SIGKILL", create=True):
         
         mock_exec.return_value = mock_proc
         
@@ -68,3 +70,4 @@ async def test_stream():
             
         assert lines == ["line 1", "line 2"]
         assert mock_kill.call_count > 0  # Kills in finally block
+
