@@ -1,0 +1,295 @@
+/* Sidewinder – dark theme TCSS */
+
+:root {
+    --primary: #4CAF50;
+    --secondary: #00BCD4;
+    --accent: #9C27B0;
+    --success: #00E676;
+    --error: #F44336;
+    --warning: #FF9800;
+    --info: #2196F3;
+    --muted: #9E9E9E;
+    --bg: #0D1117;
+    --surface: #161B22;
+    --surface-2: #21262D;
+    --border: #30363D;
+    --text: #E6EDF3;
+    --text-muted: #8B949E;
+}
+
+Screen {
+    background: $bg;
+    color: $text;
+}
+
+Header {
+    background: $surface;
+    color: $primary;
+    border-bottom: tall $border;
+}
+
+Footer {
+    background: $surface;
+    color: $text-muted;
+    border-top: tall $border;
+}
+
+/* ── DataTable ─────────────────────────────────────────── */
+
+DataTable {
+    background: $surface;
+    color: $text;
+    border: tall $border;
+}
+
+DataTable > .datatable--header {
+    background: $secondary;
+    color: $bg;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: $primary;
+    color: $bg;
+    text-style: bold;
+}
+
+DataTable > .datatable--header-cursor {
+    background: $primary;
+    color: $bg;
+    text-style: bold;
+}
+
+DataTable > .datatable--fixed {
+    background: $surface-2;
+    color: $text;
+}
+
+DataTable > .datatable--fixed-cursor {
+    background: $primary;
+    color: $bg;
+}
+
+/* ── Generic panels ─────────────────────────────────────── */
+
+.panel {
+    border: tall $border;
+    background: $surface;
+    padding: 1 2;
+    margin: 0 1;
+}
+
+.panel--title {
+    color: $secondary;
+    text-style: bold;
+}
+
+/* ── Error card ─────────────────────────────────────────── */
+
+.error-card {
+    border: tall $error;
+    background: $surface;
+    padding: 1 2;
+    margin: 1 2;
+}
+
+.error-card--title {
+    color: $error;
+    text-style: bold;
+}
+
+.error-card--section-title {
+    color: $warning;
+    text-style: bold;
+}
+
+/* ── Risk level labels ──────────────────────────────────── */
+
+.risk-safe {
+    color: $success;
+}
+
+.risk-caution {
+    color: $warning;
+}
+
+.risk-dangerous {
+    color: $error;
+}
+
+/* ── Encryption type labels ─────────────────────────────── */
+
+.enc-open {
+    color: $error;
+}
+
+.enc-wpa2 {
+    color: $success;
+}
+
+.enc-wpa3 {
+    color: $secondary;
+}
+
+.enc-wpa {
+    color: $success;
+    text-style: bold;
+}
+
+.enc-wep {
+    color: $warning;
+}
+
+/* ── Progress bar ───────────────────────────────────────── */
+
+ProgressBar .bar--bar {
+    color: $primary;
+}
+
+ProgressBar .bar--complete {
+    color: $success;
+}
+
+ProgressBar .bar--indeterminate {
+    color: $secondary;
+}
+
+/* ── Input widgets ──────────────────────────────────────── */
+
+Input {
+    background: $surface-2;
+    border: tall $border;
+    color: $text;
+}
+
+Input:focus {
+    border: tall $primary;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+
+Button {
+    background: $surface-2;
+    border: tall $border;
+    color: $text;
+}
+
+Button:focus {
+    border: tall $primary;
+    color: $primary;
+}
+
+Button.-primary {
+    background: $primary;
+    color: $bg;
+    border: tall $primary;
+    text-style: bold;
+}
+
+Button.-danger {
+    background: $error;
+    color: $bg;
+    border: tall $error;
+    text-style: bold;
+}
+
+/* ── Scrollable containers ──────────────────────────────── */
+
+ScrollableContainer {
+    background: $surface;
+    border: tall $border;
+}
+
+/* ── Logo widget ─────────────────────────────────────────── */
+
+#logo {
+    color: $primary;
+    text-style: bold;
+    text-align: center;
+    padding: 1 2;
+}
+
+/* ── Adapter status widget ──────────────────────────────── */
+
+#adapter-status {
+    border: tall $border;
+    background: $surface;
+    padding: 1 2;
+    height: auto;
+}
+
+/* ── EAPOL tracker ──────────────────────────────────────── */
+
+#eapol-tracker {
+    border: tall $border;
+    background: $surface;
+    padding: 1 2;
+    height: auto;
+}
+
+/* ── Tooltip panel ──────────────────────────────────────── */
+
+#tooltip-panel {
+    border: tall $secondary;
+    background: $surface;
+    padding: 1 2;
+    width: 40;
+}
+
+/* ── Result screen ──────────────────────────────────────── */
+
+#result-password {
+    color: $success;
+    text-style: bold;
+}
+
+#result-card {
+    border: tall $success;
+    background: $surface;
+    padding: 1 2;
+    margin: 1 2;
+}
+
+/* ── Help screen ────────────────────────────────────────── */
+
+#help-container {
+    padding: 1 2;
+    background: $surface;
+}
+
+/* ── Menu items ─────────────────────────────────────────── */
+
+ListView {
+    background: $surface;
+    border: tall $border;
+}
+
+ListItem {
+    padding: 0 2;
+    color: $text;
+}
+
+ListItem:hover {
+    background: $surface-2;
+    color: $primary;
+}
+
+ListItem.-selected {
+    background: $surface-2;
+    color: $primary;
+    text-style: bold;
+}
+
+/* ── Muted / secondary labels ───────────────────────────── */
+
+.muted {
+    color: $text-muted;
+}
+
+.info-label {
+    color: $info;
+}
+
+.accent-label {
+    color: $accent;
+}
