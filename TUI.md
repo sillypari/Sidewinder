@@ -1709,3 +1709,371 @@ MIN TERM: 80×24
 PAD:      screen=2, panel=1, card=2-1-2-1
 GAP:      between panels=1, between items=0
 ```
+
+---
+
+## 14. OpenCode-Inspired Architecture (WiFi Audit Adaptation)
+
+> Source: OpenCode TUI research — neo-brutalist terminal aesthetic,
+> panel-based layout, dense information, leader key system.
+> Adapted for Sidewinder's single-user, single-process WiFi audit context.
+
+### 14.1 Visual Language: Neo-Brutalist Terminal
+
+OpenCode uses Unicode block characters as structural elements, not decorative. Sidewinder adopts this:
+
+```
+OpenCode Symbol    Usage                      Sidewinder Adaptation
+─────────────────────────────────────────────────────────────────────
+┃ (U+2503)         Content frame borders      Scan table borders, panel edges
+█ (U+2588)         Thick sidebar separator    Adapter panel divider
+▄ ▀ ╹              Corner/edge details        Panel corners, input frame
+→                   Read operations            "Scanning...", "Reading adapter..."
+←                   Write operations           "Saving capture...", "Cracking..."
+▣ (U+25A3)         Completed tool calls       ✅ Handshake captured, ✅ Crack done
+■                   Completed steps            EAPOL M1 ■ M2 ■ M3 □ M4
+⬝                   Remaining steps            Progress indicators
+● (orange dot)      Tips and hints             "● Deauth forces reconnection"
+△                   Permission-required        "△ Requires root"
+```
+
+### 14.2 Panel Layout: WiFi Audit Zones
+
+OpenCode divides screen into Left (chat), Right (sidebar), Bottom (prompt), Status bar.
+Sidewinder adapts this for WiFi audit workflow:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ ● SIDEWINDER v0.11                    [wlan0] [MON] [CH:6] [87dBm] │  ← Status bar (1 row)
+├───────────────────────────────────────────█──────────────────────────┤
+│                                               │                      │
+│  MAIN CONTENT AREA                            │  SIDEBAR             │
+│  (scan results / capture progress / crack)    │  (adapter status)    │
+│                                               │  (signal strength)   │
+│  ┃ BSSID             CH  PWR   ENC  ESSID ┃  │  (channel info)      │
+│  ┃ ─────────────────────────────────────── ┃  │  (client count)      │
+│  ┃ AA:BB:CC:DD:EE:FF  6  -47   WPA2 NASA  ┃  │  (mode)              │
+│  ┃ 11:22:33:44:55:66 11  -62   WPA2 NASA+ ┃  │  (attack history)    │
+│  ┃ 77:88:99:AA:BB:CC  1  -71   OPEN Guest ┃  │                      │
+│                                               │                      │
+│  [Live: 2.3s | Networks: 3 | Clients: 4]      │  ▣ Handshake: YES    │
+│                                               │  ■ M1 ■ M2 ■ M3 □ M4 │
+├───────────────────────────────────────────────┤                      │
+│ ┃ ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀ ┃ │  ● Next: crack?      │
+│ ┃ > scan --band 2g --channel 6              ┃ │                      │
+│ ┃ ╹▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ ┃ ├──────────────────────┤
+│                                               │ ~/sidewinder:main    │
+│  /scan  /target  /crack  /cleanup  ? help     │ • Sidewinder v0.11   │
+└───────────────────────────────────────────────┴──────────────────────┘
+  ↑ Input/prompt area (3 rows)                    ↑ Footer (1 row)
+```
+
+**Key mapping from OpenCode → Sidewinder:**
+
+| OpenCode Zone | OpenCode Content | Sidewinder Zone | Sidewinder Content |
+|---|---|---|---|
+| Left panel | Chat messages | Main content | Scan/capture/crack tables |
+| Right panel (42 cols) | Session title, tokens, cost | Sidebar (20 cols) | Adapter, signal, channel, clients |
+| Bottom prompt | User input + model name | Input area | Slash commands + current operation |
+| Status bar | ~/path:branch + version | Status bar | Adapter + mode + channel + signal |
+| Footer | Version string | Footer | Hints + keybinds |
+
+### 14.3 Dense Information Principle
+
+OpenCode: "No decorative whitespace wasted; every region carries semantic content."
+
+Sidewinder application:
+
+```
+WASTE (current)                    DENSE (OpenCode-inspired)
+─────────────────────────────────────────────────────────────
+[1] Scan WiFi networks             [1] Scan ─────────── ● scanning...
+[2] Target a specific network      [2] Target ────────── ■ NASA (AA:BB:CC)
+[3] Crack a captured handshake     [3] Crack ─────────── ▣ password123
+[4] View saved captures            [4] Captures ──────── 3 files, 1 cracked
+[5] Hardware & settings            [5] Settings ──────── RTL8821AU [MON]
+[6] Cleanup & restore              [6] Cleanup ───────── ▣ restored
+[7] Help & tutorial                [7] Help ──────────── ?
+[0] Exit                           [0] Exit ──────────── ⏻
+```
+
+Each menu item shows its current state inline. No need to navigate to see status.
+
+### 14.4 Leader Key System (Adapted)
+
+OpenCode uses `ctrl+x` as leader key for nested commands. Sidewinder adapts this for WiFi audit:
+
+```
+OpenCode: ctrl+x m → model switcher
+          ctrl+x t → theme picker
+          ctrl+x l → session list
+
+Sidewinder: ctrl+a → attack submenu
+              ctrl+a d → deauth attack
+              ctrl+a p → PMKID capture
+              ctrl+a w → WPS pixie-dust
+              ctrl+a e → evil twin
+            ctrl+s → scan submenu
+              ctrl+s f → full scan
+              ctrl+s b → band scan
+              ctrl+s c → channel lock
+            ctrl+c → capture submenu
+              ctrl+c p → passive capture
+              ctrl+c a → active deauth capture
+            ctrl+x → context actions (screen-specific)
+```
+
+**Implementation in Textual:**
+
+```python
+# BINDINGS with ctrl+ prefix for leader-style navigation
+BINDINGS = [
+    Binding("ctrl+a", "attack_menu", "Attack", show=False),
+    Binding("ctrl+s", "scan_menu", "Scan", show=False),
+    Binding("ctrl+c", "capture_menu", "Capture", show=False),
+]
+
+def action_attack_menu(self) -> None:
+    """Show attack submenu as inline overlay."""
+    self.query_one("#attack-overlay").display = True
+```
+
+### 14.5 Inline Dialogs (Not Modals)
+
+OpenCode: "Permission dialog expands the prompt box inline — no modal overlay."
+
+Sidewinder adaptation — **inline confirmations** instead of push_screen modals:
+
+```
+CURRENT (modal):                    OPENCODE-INSPIRED (inline):
+┌─────────────────────┐             ┌──────────────────────────────┐
+│                     │             │ [1] Scan  [2] Target  ...    │
+│   ┌──────────────┐  │             │                              │
+│   │ Confirm?     │  │             │ △ Kill NetworkManager?       │
+│   │ [Y]es  [N]o  │  │             │ ▸ Allow once  Allow always  │
+│   └──────────────┘  │             │   ⇆ select  enter confirm   │
+│                     │             │                              │
+└─────────────────────┘             └──────────────────────────────┘
+```
+
+**Textual implementation:**
+
+```python
+class InlineConfirm(Widget):
+    """Expandable confirmation bar — sits at bottom of current screen."""
+    
+    DEFAULT_CSS = """
+    InlineConfirm {
+        dock: bottom;
+        height: 3;
+        background: $surface;
+        border-top: tall $accent;
+        display: none;
+    }
+    InlineConfirm.active {
+        display: block;
+    }
+    """
+    
+    def confirm(self, message: str, on_yes: Callable, on_no: Callable) -> None:
+        self.query_one("#confirm-msg").update(message)
+        self.add_class("active")
+        self._on_yes = on_yes
+        self._on_no = on_no
+```
+
+### 14.6 Widget Palette (WiFi Audit Widgets)
+
+OpenCode widget set → Sidewinder equivalents:
+
+| OpenCode Widget | OpenCode Usage | Sidewinder Widget | Sidewinder Usage |
+|---|---|---|---|
+| `Text` | Inline text with color | `Static` | All text rendering |
+| `Box` | Layout container | `Vertical` / `Horizontal` | Panel layouts |
+| `ScrollBox` | Scrollable region | `VerticalScroll` | Scan results, logs |
+| `Input` | Text entry | `Input` | Command entry, filter |
+| `Code` | Syntax-highlighted code | `DataTable` | Scan tables, results |
+| `Diff` | Side-by-side diff | `Horizontal` split | Before/after views |
+| `Select` | Selection widget | `Select` | Adapter picker, engine |
+| `ASCII-Font` | Logo rendering | `LogoWidget` | SIDEWINDER ASCII art |
+| `Line-Number` | Code line numbers | Row numbers in DataTable | Target numbering |
+
+**WiFi-specific widgets to add:**
+
+```python
+class SignalBar(Widget):
+    """Visual signal strength indicator: ▁▃▅▇█"""
+    
+class EAPOLTracker(Widget):
+    """M1 ■ M2 ■ M3 □ M4 progress display"""
+
+class ChannelIndicator(Widget):
+    """CH: 6 (2.4GHz) with band coloring"""
+
+class AdapterCard(Widget):
+    """█ Adapter: RTL8821AU [MON] 5GHz 80MHz"""
+
+class AttackStatus(Widget):
+    """▣ Deauth: 10/10 frames sent, 3 clients"""
+```
+
+### 14.7 Theme System (Live Switching)
+
+OpenCode: 33 themes, live switching via `ctrl+x t`, no restart.
+
+Sidewinder: 13 themes, live switching via `/theme` command palette.
+
+**OpenCode theme structure:**
+```json
+{
+  "defs": { "base": "#1e1e2e" },
+  "theme": {
+    "primary": "#89b4fa",
+    "background": "#1e1e2e",
+    "text": "#cdd6f4"
+  }
+}
+```
+
+**Sidewinder theme structure (already implemented):**
+```python
+@dataclass
+class SidewinderTheme:
+    primary: str = "#4CAF50"
+    background: str = "#0A0A0A"
+    surface: str = "#161B22"
+    # ... WiFi-specific: signal colors, encryption colors, method colors
+```
+
+**Live switching mechanism (already working):**
+```python
+def palette_option_highlighted(self, event) -> None:
+    """Preview theme on highlight (before selection)."""
+    theme_name = event.option.id.replace("theme-", "")
+    if theme_name in self.themes:
+        self.theme = theme_name  # Instant preview
+```
+
+### 14.8 Status Bar (Always Visible)
+
+OpenCode: `~/path:branch` left, `• OpenCode 1.2.20` right.
+
+Sidewinder: `wlan0 [MON] CH:6 87dBm` left, `● scanning... 02:30` right.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ wlan0 [MON] CH:6 87dBm │ Networks: 12 │ Clients: 8 │ ● 02:30      │
+└──────────────────────────────────────────────────────────────────────┘
+
+Segments:
+  [adapter] [mode] [channel] [signal] │ [networks] [clients] │ [status] [time]
+  
+Colors:
+  adapter:  $foreground (default)
+  mode:     $success (monitor), $warning (managed), $error (unknown)
+  channel:  $secondary
+  signal:   $success (> -50), $warning (-50 to -70), $error (< -70)
+  status:   $primary (scanning), $success (done), $error (failed)
+```
+
+### 14.9 Responsive Layout Rules
+
+OpenCode: Sidebar hides on narrow terminals. Content reflows.
+
+Sidewinder: Same principle, WiFi-specific breakpoints.
+
+```
+Width >= 120 cols:
+  ├─ Main content (flex=1)
+  ├─ █ separator (1 col)
+  └─ Sidebar (20 cols) — adapter details, signal, clients
+
+Width 80-119 cols:
+  ├─ Main content (full width)
+  └─ Sidebar hidden — adapter info moves to status bar
+
+Width < 80 cols:
+  └─ "Terminal too small. Minimum 80×24 required."
+```
+
+### 14.10 Interaction Grammar
+
+OpenCode's interaction vocabulary:
+- `→` for read, `←` for write
+- `▣` for completed, `■` for in-progress, `⬝` for remaining
+- `●` for tips, `△` for permissions
+- `⇆` for selection navigation
+
+Sidewinder's WiFi audit vocabulary:
+
+```
+Symbol   Meaning              Example
+──────   ──────────────────   ─────────────────────────
+→        Scanning             → Scanning 2.4GHz channels...
+←        Capturing            ← Sending deauth frames...
+▣        Completed            ▣ Handshake captured!
+■        In progress          ■ M1 ■ M2 ■ M3 □ M4
+⬝        Remaining            ⬝ 3 frames until timeout
+●        Tip                  ● Deauth forces reconnection
+△        Requires action      △ Kill NetworkManager first?
+✓        Success              ✓ Password found: admin123
+✗        Failure              ✗ Capture timeout
+↻        Retry                ↻ Retrying deauth (2/3)
+⊕        Selected             ⊕ NASA (AA:BB:CC:DD:EE:FF)
+⊖        Deselected           ⊕ Guest (OPEN)
+```
+
+### 14.11 Keybind Reference (Leader-Style)
+
+```
+GLOBAL (always active):
+  /           Command palette (fuzzy search)
+  ?           Help screen
+  Esc         Back / cancel / close
+  ctrl+c      Quit (with confirmation)
+
+SCREEN-SPECIFIC:
+  1-7, 0      Main menu selection
+  j/k         Navigate up/down (tables)
+  Enter       Select / confirm
+  Space       Toggle checkbox (deauth clients)
+  C           Start capture (from AP details)
+  s           Stop scan / capture
+  r           Refresh / rescan
+
+LEADER STYLE (ctrl+ prefix):
+  ctrl+a      Attack submenu
+  ctrl+s      Scan submenu  
+  ctrl+c      Capture submenu
+  ctrl+x      Context actions (screen-specific)
+
+SLASH COMMANDS:
+  /scan       Start WiFi scan
+  /target     Select target network
+  /crack      Start cracking
+  /capture    Start capture
+  /cleanup    Restore system
+  /help       Open help
+  /status     Show status
+  /adapter    Switch adapter
+  /theme      Switch theme
+  /compact    Toggle compact mode
+  /quit       Exit
+```
+
+### 14.12 What We're NOT Copying
+
+OpenCode has features that don't apply to Sidewinder:
+
+| OpenCode Feature | Why Not Sidewinder |
+|---|---|
+| Multi-line prompt (60KB component) | We use slash commands, not free-form chat |
+| SSE streaming (24KB sync provider) | Single process, no server |
+| 20+ context providers | Flat app state is simpler for our use case |
+| Plugin slots | Monolithic tool, no extensions needed |
+| LLM token counting | Not an AI assistant |
+| Cost tracking | Not a paid API |
+| Model switching | Not an AI model |
+| Diff rendering | We show tables, not code diffs |
+| Mouse tracking | Optional, keyboard-first |
+| External editor (! prefix) | Not composing long messages |
