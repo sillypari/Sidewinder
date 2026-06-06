@@ -53,7 +53,7 @@ async def test_stream():
         yield b"line 2\n"
     
     mock_proc.stdout = mock_stdout()
-    mock_proc.returncode = 0
+    mock_proc.returncode = None
     mock_proc.pid = 12345
     
     with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \

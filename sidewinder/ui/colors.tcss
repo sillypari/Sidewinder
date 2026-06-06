@@ -1,209 +1,192 @@
 /* Sidewinder – dark theme TCSS */
 
-:root {
-    --primary: #4CAF50;
-    --secondary: #00BCD4;
-    --accent: #9C27B0;
-    --success: #00E676;
-    --error: #F44336;
-    --warning: #FF9800;
-    --info: #2196F3;
-    --muted: #9E9E9E;
-    --bg: #0D1117;
-    --surface: #161B22;
-    --surface-2: #21262D;
-    --border: #30363D;
-    --text: #E6EDF3;
-    --text-muted: #8B949E;
-}
-
 Screen {
-    background: $bg;
-    color: $text;
+    background: #0D1117;
+    color: #E6EDF3;
 }
 
 Header {
-    background: $surface;
-    color: $primary;
-    border-bottom: tall $border;
+    background: #161B22;
+    color: #4CAF50;
+    border-bottom: tall #30363D;
 }
 
 Footer {
-    background: $surface;
-    color: $text-muted;
-    border-top: tall $border;
+    background: #161B22;
+    color: #8B949E;
+    border-top: tall #30363D;
 }
 
 /* ── DataTable ─────────────────────────────────────────── */
 
 DataTable {
-    background: $surface;
-    color: $text;
-    border: tall $border;
+    background: #161B22;
+    color: #E6EDF3;
+    border: tall #30363D;
 }
 
 DataTable > .datatable--header {
-    background: $secondary;
-    color: $bg;
+    background: #00BCD4;
+    color: #0D1117;
     text-style: bold;
 }
 
 DataTable > .datatable--cursor {
-    background: $primary;
-    color: $bg;
+    background: #4CAF50;
+    color: #0D1117;
     text-style: bold;
 }
 
 DataTable > .datatable--header-cursor {
-    background: $primary;
-    color: $bg;
+    background: #4CAF50;
+    color: #0D1117;
     text-style: bold;
 }
 
 DataTable > .datatable--fixed {
-    background: $surface-2;
-    color: $text;
+    background: #21262D;
+    color: #E6EDF3;
 }
 
 DataTable > .datatable--fixed-cursor {
-    background: $primary;
-    color: $bg;
+    background: #4CAF50;
+    color: #0D1117;
 }
 
 /* ── Generic panels ─────────────────────────────────────── */
 
 .panel {
-    border: tall $border;
-    background: $surface;
+    border: tall #30363D;
+    background: #161B22;
     padding: 1 2;
     margin: 0 1;
 }
 
 .panel--title {
-    color: $secondary;
+    color: #00BCD4;
     text-style: bold;
 }
 
 /* ── Error card ─────────────────────────────────────────── */
 
 .error-card {
-    border: tall $error;
-    background: $surface;
+    border: tall #F44336;
+    background: #161B22;
     padding: 1 2;
     margin: 1 2;
 }
 
 .error-card--title {
-    color: $error;
+    color: #F44336;
     text-style: bold;
 }
 
 .error-card--section-title {
-    color: $warning;
+    color: #FF9800;
     text-style: bold;
 }
 
 /* ── Risk level labels ──────────────────────────────────── */
 
 .risk-safe {
-    color: $success;
+    color: #00E676;
 }
 
 .risk-caution {
-    color: $warning;
+    color: #FF9800;
 }
 
 .risk-dangerous {
-    color: $error;
+    color: #F44336;
 }
 
 /* ── Encryption type labels ─────────────────────────────── */
 
 .enc-open {
-    color: $error;
+    color: #F44336;
 }
 
 .enc-wpa2 {
-    color: $success;
+    color: #00E676;
 }
 
 .enc-wpa3 {
-    color: $secondary;
+    color: #00BCD4;
 }
 
 .enc-wpa {
-    color: $success;
+    color: #00E676;
     text-style: bold;
 }
 
 .enc-wep {
-    color: $warning;
+    color: #FF9800;
 }
 
 /* ── Progress bar ───────────────────────────────────────── */
 
 ProgressBar .bar--bar {
-    color: $primary;
+    color: #4CAF50;
 }
 
 ProgressBar .bar--complete {
-    color: $success;
+    color: #00E676;
 }
 
 ProgressBar .bar--indeterminate {
-    color: $secondary;
+    color: #00BCD4;
 }
 
 /* ── Input widgets ──────────────────────────────────────── */
 
 Input {
-    background: $surface-2;
-    border: tall $border;
-    color: $text;
+    background: #21262D;
+    border: tall #30363D;
+    color: #E6EDF3;
 }
 
 Input:focus {
-    border: tall $primary;
+    border: tall #4CAF50;
 }
 
 /* ── Buttons ────────────────────────────────────────────── */
 
 Button {
-    background: $surface-2;
-    border: tall $border;
-    color: $text;
+    background: #21262D;
+    border: tall #30363D;
+    color: #E6EDF3;
 }
 
 Button:focus {
-    border: tall $primary;
-    color: $primary;
+    border: tall #4CAF50;
+    color: #4CAF50;
 }
 
 Button.-primary {
-    background: $primary;
-    color: $bg;
-    border: tall $primary;
+    background: #4CAF50;
+    color: #0D1117;
+    border: tall #4CAF50;
     text-style: bold;
 }
 
 Button.-danger {
-    background: $error;
-    color: $bg;
-    border: tall $error;
+    background: #F44336;
+    color: #0D1117;
+    border: tall #F44336;
     text-style: bold;
 }
 
 /* ── Scrollable containers ──────────────────────────────── */
 
 ScrollableContainer {
-    background: $surface;
-    border: tall $border;
+    background: #161B22;
+    border: tall #30363D;
 }
 
 /* ── Logo widget ─────────────────────────────────────────── */
 
 #logo {
-    color: $primary;
+    color: #4CAF50;
     text-style: bold;
     text-align: center;
     padding: 1 2;
@@ -212,8 +195,8 @@ ScrollableContainer {
 /* ── Adapter status widget ──────────────────────────────── */
 
 #adapter-status {
-    border: tall $border;
-    background: $surface;
+    border: tall #30363D;
+    background: #161B22;
     padding: 1 2;
     height: auto;
 }
@@ -221,8 +204,8 @@ ScrollableContainer {
 /* ── EAPOL tracker ──────────────────────────────────────── */
 
 #eapol-tracker {
-    border: tall $border;
-    background: $surface;
+    border: tall #30363D;
+    background: #161B22;
     padding: 1 2;
     height: auto;
 }
@@ -230,8 +213,8 @@ ScrollableContainer {
 /* ── Tooltip panel ──────────────────────────────────────── */
 
 #tooltip-panel {
-    border: tall $secondary;
-    background: $surface;
+    border: tall #00BCD4;
+    background: #161B22;
     padding: 1 2;
     width: 40;
 }
@@ -239,13 +222,13 @@ ScrollableContainer {
 /* ── Result screen ──────────────────────────────────────── */
 
 #result-password {
-    color: $success;
+    color: #00E676;
     text-style: bold;
 }
 
 #result-card {
-    border: tall $success;
-    background: $surface;
+    border: tall #00E676;
+    background: #161B22;
     padding: 1 2;
     margin: 1 2;
 }
@@ -254,42 +237,42 @@ ScrollableContainer {
 
 #help-container {
     padding: 1 2;
-    background: $surface;
+    background: #161B22;
 }
 
 /* ── Menu items ─────────────────────────────────────────── */
 
 ListView {
-    background: $surface;
-    border: tall $border;
+    background: #161B22;
+    border: tall #30363D;
 }
 
 ListItem {
     padding: 0 2;
-    color: $text;
+    color: #E6EDF3;
 }
 
 ListItem:hover {
-    background: $surface-2;
-    color: $primary;
+    background: #21262D;
+    color: #4CAF50;
 }
 
 ListItem.-selected {
-    background: $surface-2;
-    color: $primary;
+    background: #21262D;
+    color: #4CAF50;
     text-style: bold;
 }
 
 /* ── Muted / secondary labels ───────────────────────────── */
 
 .muted {
-    color: $text-muted;
+    color: #8B949E;
 }
 
 .info-label {
-    color: $info;
+    color: #2196F3;
 }
 
 .accent-label {
-    color: $accent;
+    color: #9C27B0;
 }

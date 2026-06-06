@@ -14,7 +14,10 @@ Navigation:
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Optional
+
+from rich.text import Text
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -85,11 +88,12 @@ class MainMenuScreen(Screen):
             yield Static(" ", id="spacer2")
             with Vertical(id="menu"):
                 for key, label, action in MAIN_MENU_ITEMS:
-                    yield Static(
-                        f" [[bold magenta]{key}[/bold magenta]] {label}",
-                        classes="menu-item",
-                        id=f"menu-{action}",
-                    )
+                    t = Text()
+                    t.append("[")
+                    t.append(key, style="bold magenta")
+                    t.append("] ")
+                    t.append(label)
+                    yield Static(t, classes="menu-item", id=f"menu-{action}")
             yield Static(
                 "\n [dim]/ command  ? help  Esc quit[/dim]",
                 id="hints",
@@ -427,13 +431,15 @@ class CaptureMethodScreen(Screen):
                     risk_c = {"safe": "green", "caution": "yellow", "dangerous": "red"}.get(
                         m["risk_level"], "white"
                     )
-                    yield Static(
-                        f" [[bold magenta]{m['key']}[/bold magenta]] [bold]{m['name']}[/bold]\n"
-                        f"     {m['short']}\n"
-                        f"     Risk: [{risk_c}]{m['risk_level'].upper()}[/{risk_c}]\n",
-                        classes="menu-item",
-                        id=f"method-{m['key']}",
-                    )
+                    t = Text()
+                    t.append("[")
+                    t.append(m["key"], style="bold magenta")
+                    t.append("] ")
+                    t.append(m["name"], style="bold")
+                    t.append("\n     ")
+                    t.append(m["short"])
+                    t.append(f"\n     Risk: {m['risk_level'].upper()}", style=risk_c)
+                    yield Static(t, classes="menu-item", id=f"method-{m['key']}")
                 yield Static(" [dim]1-5: select  Esc: back[/dim]")
             with Vertical(id="tooltip-area", classes="panel"):
                 m = CAPTURE_METHODS[self.selected_idx]

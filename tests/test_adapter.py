@@ -7,51 +7,26 @@ from sidewinder.core.subprocess_mgr import ProcessResult
 
 @pytest.mark.asyncio
 async def test_detect_adapter_sysfs():
-    with patch("os.listdir") as mock_listdir, \
-         patch("os.path.islink") as mock_islink, \
-         patch("builtins.open", new_callable=pytest.MonkeyPatch) as m:
-        
-        # Test missing adapter
-        mock_listdir.return_value = ["lo", "eth0"]
+    with patch("sidewinder.core.adapter.list_interfaces", return_value=[]):
         mgr = AdapterManager()
         await mgr.discover()
         assert len(mgr.adapters) == 0
 
 @pytest.mark.asyncio
 async def test_detect_adapter_properties():
-    with patch("os.path.exists", return_value=True), \
-         patch("builtins.open", new_callable=pytest.mock.mock_open, read_data="phy0\n") as mock_open_file, \
-         patch("sidewinder.core.adapter.run", new_callable=AsyncMock) as mock_run:
-        
-        # We simulate reading an iw_list output
-        iw_output = """
-Wiphy phy0
-        Supported interface modes:
-                 * managed
-                 * monitor
-        Band 1:
-                Capabilities: 0x1234
-        Band 2:
-                Capabilities: 0x5678
-"""
-        mock_run.return_value = ProcessResult(0, iw_output, "")
-        
-        # Since os.path.exists is True, we pretend to read uevent, address, etc.
-        # But we would need to mock open more extensively if we test everything.
-        # Here we just verify we can instantiate AdapterInfo correctly.
-        info = AdapterInfo(
-            iface="wlan0",
-            phy="phy0",
-            driver="rt2800usb",
-            chipset="RT5370",
-            mac="00:11:22:33:44:55",
-            monitor_capable=True,
-            injection_capable=True,
-            bands=["2.4GHz"],
-            current_mode="managed"
-        )
-        assert info.iface == "wlan0"
-        assert info.monitor_capable is True
+    info = AdapterInfo(
+        iface="wlan0",
+        phy="phy0",
+        driver="rt2800usb",
+        chipset="RT5370",
+        mac="00:11:22:33:44:55",
+        monitor_capable=True,
+        injection_capable=True,
+        bands=["2.4GHz"],
+        current_mode="managed"
+    )
+    assert info.iface == "wlan0"
+    assert info.monitor_capable is True
         
 @pytest.mark.asyncio
 async def test_get_best_for_operation():

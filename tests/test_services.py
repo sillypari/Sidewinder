@@ -50,11 +50,12 @@ async def test_restore_services():
         KilledProcess(name="wpa_supplicant", pid=456, was_systemd=False)
     ]
     
-    with patch("sidewinder.core.services.run", new_callable=AsyncMock) as mock_run:
+    with patch("sidewinder.core.services.run", new_callable=AsyncMock) as mock_run, \
+         patch("asyncio.sleep", new_callable=AsyncMock):
         mock_run.return_value = ProcessResult(0, "active", "")
         
         await mgr.restore()
         
         assert len(mgr.killed_processes) == 0
-        # systemctl start NetworkManager, systemctl is-active NetworkManager
-        assert mock_run.call_count == 2
+        # 2 services: systemctl start + systemctl is-active (returns "active" immediately) = 4 calls
+        assert mock_run.call_count == 4

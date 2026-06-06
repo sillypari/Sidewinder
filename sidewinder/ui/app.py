@@ -51,7 +51,7 @@ SLASH_COMMANDS = {
 
 class SidewinderApp(App):
     """Sidewinder WiFi Audit Tool — main application.
-    
+
     Keyboard bindings (global):
       / — open command palette (slash commands)
       ? — open help screen
@@ -60,6 +60,7 @@ class SidewinderApp(App):
     TITLE = "Sidewinder"
     SUB_TITLE = "Native Linux WiFi Audit Tool"
     CSS_PATH = "colors.tcss"
+    dark = True
 
     BINDINGS = [
         Binding("question_mark", "help", "Help", show=True),
@@ -77,11 +78,12 @@ class SidewinderApp(App):
         self._cleanup_manager = None
 
     def compose(self) -> ComposeResult:
-        # The main screen handles composition
-        yield MainMenuScreen()
+        yield Header(show_clock=True)
+        yield Footer()
 
     def on_mount(self) -> None:
-        """Initialize adapters and install signal handlers on mount."""
+        """Initialize adapters, install signal handlers, and show main menu."""
+        self.push_screen(MainMenuScreen())
         asyncio.create_task(self._initialize())
         # Show resume prompt if previous session exists
         if self._existing_session:

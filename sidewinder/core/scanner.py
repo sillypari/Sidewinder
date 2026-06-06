@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 from enum import Enum, auto
 from typing import Callable, Optional
@@ -47,12 +48,14 @@ class AirodumpParser:
         # airodump-ng uses carriage returns to clear screen — strip them
         line = line.replace("\r", "").strip()
 
-        # Detect section headers
-        if "BSSID" in line and "PWR" in line and "ESSID" in line:
-            self.state = ParseState.AP_HEADER
-            return None
-        if "BSSID" in line and "STATION" in line:
+        # Detect section headers (case-insensitive to handle both
+        # live terminal output and CSV file headers)
+        low = line.lower()
+        if "bssid" in low and "station" in low:
             self.state = ParseState.CLIENT_HEADER
+            return None
+        if "bssid" in low and ("pwr" in low or "power" in low) and "essid" in low:
+            self.state = ParseState.AP_HEADER
             return None
 
         # Blank lines transition states
@@ -62,6 +65,12 @@ class AirodumpParser:
             elif self.state == ParseState.CLIENT_HEADER:
                 self.state = ParseState.CLIENT_DATA
             return None
+
+        # Non-blank data line after a header → transition to DATA state
+        if self.state == ParseState.AP_HEADER:
+            self.state = ParseState.AP_DATA
+        elif self.state == ParseState.CLIENT_HEADER:
+            self.state = ParseState.CLIENT_DATA
 
         # Parse data lines
         if self.state == ParseState.AP_DATA:
