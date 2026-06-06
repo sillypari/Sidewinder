@@ -24,7 +24,6 @@ from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import (
     DataTable,
-    Footer,
     Header,
     Input,
     Label,
@@ -93,7 +92,16 @@ class SidewinderScreen(Screen):
             yield Static("█", id="sidebar-sep")
             with Vertical(id="right-sidebar"):
                 yield from self.compose_sidebar()
-        yield Footer()
+        yield Static(
+            "[$text-muted][/$text-muted] "
+            "[$text-muted]/[/$text-muted] scan  "
+            "[$text-muted]?[/$text-muted] help  "
+            "[$text-muted]j/k[/$text-muted] nav  "
+            "[$text-muted]Enter[/$text-muted] select  "
+            "[$text-muted]Esc[/$text-muted] back  "
+            "[$text-muted]^Q[/$text-muted] quit",
+            id="nav-bar",
+        )
 
     def compose_main(self) -> ComposeResult:
         """Compose main content. Must be overridden by subclasses."""

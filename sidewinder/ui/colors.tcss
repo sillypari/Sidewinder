@@ -36,7 +36,7 @@ Header .header--title {
     color: $foreground;
 }
 
-Footer {
+#nav-bar {
     background: $surface;
     color: $foreground;
     dock: bottom;
@@ -701,7 +701,7 @@ ToastRack {
     padding: 0 1;
 }
 
-.-compact Footer {
+.-compact #nav-bar {
     padding-left: 0;
 }
 

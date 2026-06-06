@@ -18,7 +18,7 @@ from typing import Optional
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.widgets import Footer, Header
+from textual.widgets import Header, Static
 
 from .screens import (
     AdapterScreen,
@@ -88,7 +88,16 @@ class SidewinderApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield Footer()
+        yield Static(
+            "[$text-muted][/$text-muted] "
+            "[$text-muted]/[/$text-muted] scan  "
+            "[$text-muted]?[/$text-muted] help  "
+            "[$text-muted]j/k[/$text-muted] nav  "
+            "[$text-muted]Enter[/$text-muted] select  "
+            "[$text-muted]Esc[/$text-muted] back  "
+            "[$text-muted]^Q[/$text-muted] quit",
+            id="nav-bar",
+        )
 
     def on_mount(self) -> None:
         """Initialize adapters, install signal handlers, and show main menu."""
