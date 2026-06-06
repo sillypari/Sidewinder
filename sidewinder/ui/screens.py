@@ -298,15 +298,19 @@ class MainMenuScreen(SidewinderScreen):
     ]
 
     def compose_main(self) -> ComposeResult:
-        from .components import LogoWidget, Spacer
+        from .components import LogoWidget, AdapterStatusWidget, Spacer
         yield Spacer(height=2)
         yield Center(LogoWidget(id="logo"))
-        yield Spacer(height=3)
+        yield Spacer(height=1)
+        yield Center(AdapterStatusWidget(id="adapter-status"))
+        yield Spacer(height=1)
         yield Center(ListView(id="menu"))
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]/[/$text-muted] command   [$text-muted]•[/$text-muted]   [$text-muted]?[/$text-muted] help   [$text-muted]•[/$text-muted]   [$text-muted]Esc[/$text-muted] quit",
+            "[$text-muted]  /[/$text-muted][$text-muted] command[/$text-muted]"
+            "  [$text-muted]?[/$text-muted][$text-muted] help[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] quit[/$text-muted]",
             id="hints",
         )
 
@@ -364,10 +368,10 @@ class MainMenuScreen(SidewinderScreen):
                     info = self._get_menu_item_info(action)
                     padded_label = f"{label:<28}"
                     markup = (
-                        rf"[$text-muted]\[[/$text-muted]"
+                        rf"[$text-muted]\[[/]"
                         rf"[bold $secondary]{key}[/bold $secondary]"
-                        rf"[$text-muted]][/$text-muted]  "
-                        rf"[$text]{padded_label}[/$text]"
+                        rf"[$text-muted]][/]  "
+                        rf"[$text]{padded_label}[/]"
                         rf" [dim]{info}[/dim]"
                     )
                     lv.append(ListItem(Label(markup), id=f"menu-{action}"))
@@ -386,10 +390,10 @@ class MainMenuScreen(SidewinderScreen):
                     info = self._get_menu_item_info(action)
                     padded_label = f"{label:<28}"
                     markup = (
-                        rf"[$text-muted]\[[/$text-muted]"
+                        rf"[$text-muted]\[[/]"
                         rf"[bold $secondary]{key}[/bold $secondary]"
-                        rf"[$text-muted]][/$text-muted]  "
-                        rf"[$text]{padded_label}[/$text]"
+                        rf"[$text-muted]][/]  "
+                        rf"[$text]{padded_label}[/]"
                         rf" [dim]{info}[/dim]"
                     )
                     try:
@@ -493,10 +497,10 @@ class AdapterScreen(SidewinderScreen):
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "  [$text-muted]r[/$text-muted][$text-muted] refresh[/$text-muted]  "
-            "[$text-muted]m[/$text-muted][$text-muted] monitor setup[/$text-muted]  "
-            "[$text-muted]s[/$text-muted][$text-muted] service mgr[/$text-muted]  "
-            "[$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "  [$text-muted]r[/][$text-muted] refresh[/]  "
+            "[$text-muted]m[/][$text-muted] monitor setup[/]  "
+            "[$text-muted]s[/][$text-muted] service mgr[/]  "
+            "[$text-muted]Esc[/][$text-muted] back[/]",
             id="adapter-hints",
         )
 
@@ -571,9 +575,9 @@ class ScanScreen(SidewinderScreen):
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
-            "  [$text-muted]s[/$text-muted][$text-muted] stop[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] select[/]"
+            "  [$text-muted]s[/][$text-muted] stop[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="scan-hints",
         )
 
@@ -690,16 +694,16 @@ class ScanScreen(SidewinderScreen):
         w, _ = self.app.size
 
         row_data = [
-            f"[$text-muted]{network.bssid}[/$text-muted]",
-            f"[$secondary]{network.channel}[/$secondary]",
+            f"[$text-muted]{network.bssid}[/]",
+            f"[$secondary]{network.channel}[/]",
             f"{bar} [{sc}]{network.signal}[/{sc}]",
             "",
             f"[{pc}]{network.privacy}[/{pc}]",
             network.cipher,
-            f"[$text]{network.display_name()}[/$text]"
+            f"[$text]{network.display_name()}[/]"
         ]
         if w >= 100:
-            row_data.append("[$success]✓[/$success]" if network.wps else "")
+            row_data.append("[$success]✓[/]" if network.wps else "")
             row_data.append("")
 
         try:
@@ -783,16 +787,16 @@ class TargetSelectScreen(SidewinderScreen):
 
     def compose_main(self) -> ComposeResult:
         yield Static("[bold $primary]Select Target Network[/bold $primary]", id="target-title")
-        yield Static("[$text-muted]──────────────────────[/$text-muted]", id="target-divider")
+        yield Static("[$text-muted]──────────────────────[/]", id="target-divider")
         table = DataTable(id="target-table", show_cursor=True)
         table.add_columns("BSSID", "CH", "Signal", "Privacy", "ESSID", "Clients")
         yield table
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
-            "  [$text-muted]j/k[/$text-muted][$text-muted] navigate[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] select[/]"
+            "  [$text-muted]j/k[/][$text-muted] navigate[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="target-hints",
         )
 
@@ -915,17 +919,17 @@ class CaptureMethodScreen(SidewinderScreen):
         with Horizontal(id="sc-method"):
             with Vertical(id="method-list"):
                 yield Static("[bold $primary]Capture Method[/bold $primary]", id="method-title")
-                yield Static("[$text-disabled]──────────────[/$text-disabled]")
+                yield Static("[$text-disabled]──────────────[/]")
                 for m in CAPTURE_METHODS:
                     risk_colors = {"safe": "$success", "caution": "$warning", "dangerous": "$error"}
                     rc = risk_colors.get(m["risk_level"], "$text")
                     markup = (
-                        rf"[$text-muted]\[[/$text-muted]"
+                        rf"[$text-muted]\[[/]"
                         f"[bold $secondary]{m['key']}[/bold $secondary]"
-                        f"[$text-muted]] [/$text-muted]"
+                        f"[$text-muted]] [/]"
                         f"[bold $text]{m['name']}[/bold $text]\n"
-                        f"    [$text-muted]{m['short']}[/$text-muted]\n"
-                        f"    [$text-muted]Risk: [/$text-muted]"
+                        f"    [$text-muted]{m['short']}[/]\n"
+                        f"    [$text-muted]Risk: [/]"
                         f"[{rc}]{m['risk_level'].upper()}[/{rc}]"
                     )
                     yield Static(markup, id=f"method-{m['key']}")
@@ -934,8 +938,8 @@ class CaptureMethodScreen(SidewinderScreen):
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  1-5[/$text-muted][$text-muted] select[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  1-5[/][$text-muted] select[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="method-hints",
         )
 
@@ -1030,13 +1034,13 @@ class CaptureProgressScreen(SidewinderScreen):
             f"[bold $primary]Capturing Handshake[/bold $primary]",
             id="capture-title",
         )
-        yield Static("[$text-disabled]──────────────────────────────────────────────────[/$text-disabled]")
+        yield Static("[$text-disabled]──────────────────────────────────────────────────[/]")
         yield AttackProgressPanel(method=self.method, id="attack-panel")
         yield ProgressBar(id="capture-progress", total=100)
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Esc[/$text-muted][$text-muted] stop capture[/$text-muted]",
+            "[$text-muted]  Esc[/][$text-muted] stop capture[/]",
             id="capture-hints",
         )
 
@@ -1257,17 +1261,17 @@ class DeauthSelectScreen(SidewinderScreen):
 
     def compose_main(self) -> ComposeResult:
         yield Static("[bold $primary]Select Deauth Targets[/bold $primary]", id="deauth-title")
-        yield Static("[$text-disabled]────────────────────[/$text-disabled]")
+        yield Static("[$text-disabled]────────────────────[/]")
         yield DataTable(id="client-table", show_cursor=True)
         yield Static(id="rate-display")
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Space[/$text-muted][$text-muted] toggle[/$text-muted]"
-            "  [$text-muted]a[/$text-muted][$text-muted] select all[/$text-muted]"
-            "  [$text-muted]+/-[/$text-muted][$text-muted] rate[/$text-muted]"
-            "  [$text-muted]Enter[/$text-muted][$text-muted] confirm[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Space[/][$text-muted] toggle[/]"
+            "  [$text-muted]a[/][$text-muted] select all[/]"
+            "  [$text-muted]+/-[/][$text-muted] rate[/]"
+            "  [$text-muted]Enter[/][$text-muted] confirm[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="deauth-hints",
         )
 
@@ -1290,7 +1294,7 @@ class DeauthSelectScreen(SidewinderScreen):
 
     def _update_rate_display(self) -> None:
         rd = self.query_one("#rate-display", Static)
-        rd.update(f"[$text-muted]  Deauth rate[/$text-muted]  [$accent]{self.rate}[/$accent][$text-muted] frames/burst[/$text-muted]  [$text-muted]+/- to adjust[/$text-muted]")
+        rd.update(f"[$text-muted]  Deauth rate[/]  [$accent]{self.rate}[/][$text-muted] frames/burst[/]  [$text-muted]+/- to adjust[/]")
 
     def action_rate_up(self) -> None:
         self.rate = min(self.rate + 5, 50)
@@ -1312,8 +1316,8 @@ class DeauthSelectScreen(SidewinderScreen):
             pass
 
         table.add_row(
-            "[$success]*[/$success]",
-            f"[$text-muted]{mac}[/$text-muted]",
+            "[$success]*[/]",
+            f"[$text-muted]{mac}[/]",
             vendor[:15],
             f"{signal_bar(signal)} {signal}",
             str(packets),
@@ -1326,14 +1330,14 @@ class DeauthSelectScreen(SidewinderScreen):
             row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key
             col_key = list(table.columns.keys())[0]
             current = table.get_cell(row_key, col_key)
-            new_val = "[$text-muted]·[/$text-muted]" if "*" in str(current) else "[$success]*[/$success]"
+            new_val = "[$text-muted]·[/]" if "*" in str(current) else "[$success]*[/]"
             table.update_cell(row_key, col_key, new_val, update_width=False)
 
     def action_select_all(self) -> None:
         table = self.query_one("#client-table", DataTable)
         col_key = list(table.columns.keys())[0]
         for row_key in table.rows:
-            table.update_cell(row_key, col_key, "[$success]*[/$success]", update_width=False)
+            table.update_cell(row_key, col_key, "[$success]*[/]", update_width=False)
 
     def action_confirm(self) -> None:
         table = self.query_one("#client-table", DataTable)
@@ -1379,14 +1383,14 @@ class CrackProgressScreen(SidewinderScreen):
 
     def compose_main(self) -> ComposeResult:
         yield Static("[bold $primary]Cracking Password[/bold $primary]", id="crack-title")
-        yield Static("[$text-disabled]────────────────[/$text-disabled]")
+        yield Static("[$text-disabled]────────────────[/]")
         with Vertical(id="crack-stats-panel"):
             yield Static(id="crack-stats")
             yield ProgressBar(id="crack-progress", total=100)
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Esc[/$text-muted][$text-muted] stop cracking[/$text-muted]",
+            "[$text-muted]  Esc[/][$text-muted] stop cracking[/]",
             id="crack-hints",
         )
 
@@ -1473,10 +1477,10 @@ class CrackProgressScreen(SidewinderScreen):
         stats = self.query_one("#crack-stats", Static)
         pct = (self.keys_tested / self.keys_total * 100) if self.keys_total > 0 else 0
         stats.update(
-            f"[$text-muted]Keys tested[/$text-muted]  [$secondary]{self.keys_tested:,}[/$secondary][$text-muted] / [/$text-muted][$text]{self.keys_total:,}[/$text]\n"
-            f"[$text-muted]Speed      [/$text-muted]  [$secondary]{self.speed:,.0f}[/$secondary][$text-muted] keys/sec[/$text-muted]\n"
-            f"[$text-muted]ETA        [/$text-muted]  [$secondary]{self.eta}[/$secondary]\n"
-            f"[$text-muted]Current    [/$text-muted]  [$text-muted]{self.current_key or '...'}[/$text-muted]\n"
+            f"[$text-muted]Keys tested[/]  [$secondary]{self.keys_tested:,}[/][$text-muted] / [/][$text]{self.keys_total:,}[/]\n"
+            f"[$text-muted]Speed      [/]  [$secondary]{self.speed:,.0f}[/][$text-muted] keys/sec[/]\n"
+            f"[$text-muted]ETA        [/]  [$secondary]{self.eta}[/]\n"
+            f"[$text-muted]Current    [/]  [$text-muted]{self.current_key or '...'}[/]\n"
         )
         pbar = self.query_one("#crack-progress", ProgressBar)
         pbar.progress = pct
@@ -1570,10 +1574,10 @@ class ResultScreen(SidewinderScreen):
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  1[/$text-muted][$text-muted] save to file[/$text-muted]"
-            "  [$text-muted]2[/$text-muted][$text-muted] copy to clipboard[/$text-muted]"
-            "  [$text-muted]4[/$text-muted][$text-muted] attack another[/$text-muted]"
-            "  [$text-muted]6[/$text-muted][$text-muted] main menu[/$text-muted]",
+            "[$text-muted]  1[/][$text-muted] save to file[/]"
+            "  [$text-muted]2[/][$text-muted] copy to clipboard[/]"
+            "  [$text-muted]4[/][$text-muted] attack another[/]"
+            "  [$text-muted]6[/][$text-muted] main menu[/]",
             id="result-hints",
         )
 
@@ -1672,8 +1676,8 @@ class ErrorScreen(SidewinderScreen):
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] dismiss[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] dismiss[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] dismiss[/]"
+            "  [$text-muted]Esc[/][$text-muted] dismiss[/]",
             id="error-hints",
         )
 
@@ -1684,41 +1688,41 @@ class ErrorScreen(SidewinderScreen):
 # ── Help Screen ───────────────────────────────────────────────────────────────
 
 TUTORIAL = """\
- [$accent]┌─ Welcome to Sidewinder ──────────────────────────────────────────┐[/$accent]
- [$accent]│[/$accent]  A native Linux WiFi audit tool. Zero bloat, terminal-first.   [$accent]│[/$accent]
- [$accent]└──────────────────────────────────────────────────────────────────┘[/$accent]
+ [$accent]┌─ Welcome to Sidewinder ──────────────────────────────────────────┐[/]
+ [$accent]│[/]  A native Linux WiFi audit tool. Zero bloat, terminal-first.   [$accent]│[/]
+ [$accent]└──────────────────────────────────────────────────────────────────┘[/]
 
- [$primary]Phase 1 · Scan[/$primary]
- [$text-disabled]──────────────[/$text-disabled]
-   [$text-muted]1.[/$text-muted]  Press [bold $primary][1][/bold $primary] from the main menu to start a live scan
-   [$text-muted]2.[/$text-muted]  Networks appear automatically (auto-hops all channels)
-   [$text-muted]3.[/$text-muted]  Press [bold $text]Enter[/bold $text] on a network to select it as the target
-   [$text-muted]4.[/$text-muted]  Press [bold $text]s[/bold $text] to stop scanning and move to capture
+ [$primary]Phase 1 · Scan[/]
+ [$text-disabled]──────────────[/]
+   [$text-muted]1.[/]  Press [bold $primary][1][/bold $primary] from the main menu to start a live scan
+   [$text-muted]2.[/]  Networks appear automatically (auto-hops all channels)
+   [$text-muted]3.[/]  Press [bold $text]Enter[/bold $text] on a network to select it as the target
+   [$text-muted]4.[/]  Press [bold $text]s[/bold $text] to stop scanning and move to capture
 
- [$primary]Phase 2 · Capture[/$primary]
- [$text-disabled]─────────────────[/$text-disabled]
-   [$text-muted]1.[/$text-muted]  Choose your method:
-       [bold $primary][1][/bold $primary]  [$success]Passive[/$success]  — Listen quietly for a natural handshake
-       [bold $primary][2][/bold $primary]  [$warning]Deauth[/$warning]   — Force clients off, capture handshake fast
-   [$text-muted]2.[/$text-muted]  Watch the [$accent]EAPOL M1→M2→M3→M4[/$accent] tracker fill in
-   [$text-muted]3.[/$text-muted]  Capture stops automatically when handshake is complete
+ [$primary]Phase 2 · Capture[/]
+ [$text-disabled]─────────────────[/]
+   [$text-muted]1.[/]  Choose your method:
+       [bold $primary][1][/bold $primary]  [$success]Passive[/]  — Listen quietly for a natural handshake
+       [bold $primary][2][/bold $primary]  [$warning]Deauth[/]   — Force clients off, capture handshake fast
+   [$text-muted]2.[/]  Watch the [$accent]EAPOL M1→M2→M3→M4[/] tracker fill in
+   [$text-muted]3.[/]  Capture stops automatically when handshake is complete
 
- [$primary]Phase 3 · Crack[/$primary]
- [$text-disabled]───────────────[/$text-disabled]
-   [$text-muted]1.[/$text-muted]  Pick a wordlist (Sidewinder auto-discovers system lists)
-   [$text-muted]2.[/$text-muted]  Choose engine: [$secondary]aircrack-ng[/$secondary] (CPU) or [$primary]hashcat[/$primary] (GPU)
-   [$text-muted]3.[/$text-muted]  Watch the progress bar and key-rate counter
-   [$text-muted]4.[/$text-muted]  Password appears in [bold $success]green[/bold $success] when found
+ [$primary]Phase 3 · Crack[/]
+ [$text-disabled]───────────────[/]
+   [$text-muted]1.[/]  Pick a wordlist (Sidewinder auto-discovers system lists)
+   [$text-muted]2.[/]  Choose engine: [$secondary]aircrack-ng[/] (CPU) or [$primary]hashcat[/] (GPU)
+   [$text-muted]3.[/]  Watch the progress bar and key-rate counter
+   [$text-muted]4.[/]  Password appears in [bold $success]green[/bold $success] when found
 
- [$primary]Phase 4 · Cleanup[/$primary]
- [$text-disabled]─────────────────[/$text-disabled]
-   [$text-muted]1.[/$text-muted]  Press [bold $primary][6][/bold $primary] from the main menu
-   [$text-muted]2.[/$text-muted]  Confirm capture file deletion
-   [$text-muted]3.[/$text-muted]  NetworkManager and wpa_supplicant are restored automatically
-   [$text-muted]4.[/$text-muted]  Exit safely
+ [$primary]Phase 4 · Cleanup[/]
+ [$text-disabled]─────────────────[/]
+   [$text-muted]1.[/]  Press [bold $primary][6][/bold $primary] from the main menu
+   [$text-muted]2.[/]  Confirm capture file deletion
+   [$text-muted]3.[/]  NetworkManager and wpa_supplicant are restored automatically
+   [$text-muted]4.[/]  Exit safely
 
- [$primary]Keyboard Reference[/$primary]
- [$text-disabled]──────────────────[/$text-disabled]
+ [$primary]Keyboard Reference[/]
+ [$text-disabled]──────────────────[/]
    [bold $text]j / k[/bold $text]      Navigate up / down
    [bold $text]Enter[/bold $text]      Select or confirm
    [bold $text]Esc[/bold $text]        Back or cancel
@@ -1729,13 +1733,13 @@ TUTORIAL = """\
    [bold $text]Space[/bold $text]      Toggle checkbox (deauth screen)
    [bold $text]a[/bold $text]          Select all (deauth screen)
 
- [$primary]Adapter Priority[/$primary]
- [$text-disabled]────────────────[/$text-disabled]
-   [$success]1st[/$success]  RTL8821AU — Full monitor + injection + 5GHz
-   [$warning]2nd[/$warning]  RT5370    — 2.4GHz, reliable, no extra driver needed
-   [$error]3rd[/$error]  MT7902    — Internet only, no injection
+ [$primary]Adapter Priority[/]
+ [$text-disabled]────────────────[/]
+   [$success]1st[/]  RTL8821AU — Full monitor + injection + 5GHz
+   [$warning]2nd[/]  RT5370    — 2.4GHz, reliable, no extra driver needed
+   [$error]3rd[/]  MT7902    — Internet only, no injection
 
- [$text-muted]Press Esc or q to close[/$text-muted]
+ [$text-muted]Press Esc or q to close[/]
 """
 
 
@@ -1752,7 +1756,7 @@ class HelpScreen(SidewinderScreen):
             yield Static(TUTORIAL, id="tutorial-text")
 
     def compose_prompt(self) -> ComposeResult:
-        yield Static("[$text-muted]  Esc / q[/$text-muted][$text-muted] close help[/$text-muted]", id="help-hints")
+        yield Static("[$text-muted]  Esc / q[/][$text-muted] close help[/]", id="help-hints")
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -1779,26 +1783,26 @@ class ResumeScreen(SidewinderScreen):
     def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-resume"):
             yield Static("[bold $primary]Previous Session Found[/bold $primary]", id="resume-title")
-            yield Static("[$text-disabled]─────────────────────[/$text-disabled]")
+            yield Static("[$text-disabled]─────────────────────[/]")
             scan_count = len(self._session.scan_results)
             target = self._session.selected_target
             target_name = target.display_name() if target else "None"
             captures = len(self._session.captures)
             cracked = len(self._session.cracked_passwords)
             yield Static(
-                f"[$text-muted]  Session [/$text-muted]  [$text-muted]{self._session.id[:8]}...[/$text-muted]\n"
-                f"[$text-muted]  Adapter [/$text-muted]  [$text-muted]{self._session.adapter or 'Not set'}[/$text-muted]\n"
-                f"[$text-muted]  Scans   [/$text-muted]  [$text]{scan_count} networks[/$text]\n"
-                f"[$text-muted]  Target  [/$text-muted]  [$text]{target_name}[/$text]\n"
-                f"[$text-muted]  Captures[/$text-muted]  [$text]{captures} files[/$text]\n"
-                f"[$text-muted]  Cracked [/$text-muted]  [$success]{cracked} passwords[/$success]",
+                f"[$text-muted]  Session [/]  [$text-muted]{self._session.id[:8]}...[/]\n"
+                f"[$text-muted]  Adapter [/]  [$text-muted]{self._session.adapter or 'Not set'}[/]\n"
+                f"[$text-muted]  Scans   [/]  [$text]{scan_count} networks[/]\n"
+                f"[$text-muted]  Target  [/]  [$text]{target_name}[/]\n"
+                f"[$text-muted]  Captures[/]  [$text]{captures} files[/]\n"
+                f"[$text-muted]  Cracked [/]  [$success]{cracked} passwords[/]",
                 id="resume-summary",
             )
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[bold $success]  Y[/bold $success][$text-muted]  Resume this session[/$text-muted]\n"
-            "[bold $error]  N[/bold $error][$text-muted]  Start fresh[/$text-muted]",
+            "[bold $success]  Y[/bold $success][$text-muted]  Resume this session[/]\n"
+            "[bold $error]  N[/bold $error][$text-muted]  Start fresh[/]",
             id="resume-options",
         )
 
@@ -1843,8 +1847,8 @@ class CommandPaletteScreen(SidewinderScreen):
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] submit[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] submit[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="command-hints",
         )
 
@@ -1977,8 +1981,8 @@ class ThemeSelectScreen(SidewinderScreen):
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] cancel[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] select[/]"
+            "  [$text-muted]Esc[/][$text-muted] cancel[/]",
             id="theme-hints",
         )
 
@@ -2040,14 +2044,14 @@ class WordlistPickerScreen(SidewinderScreen):
 
         with Vertical(id="sc-wordlist"):
             yield Static("[bold $primary]Select Wordlist[/bold $primary]", id="wordlist-title")
-            yield Static("[$text-disabled]──────────────[/$text-disabled]")
+            yield Static("[$text-disabled]──────────────[/]")
             path = "/usr/share/wordlists" if os.path.exists("/usr/share/wordlists") else "."
             yield DirectoryTree(path, id="wordlist-tree")
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] select[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="wordlist-hints",
         )
 
@@ -2073,19 +2077,19 @@ class EnginePickerScreen(SidewinderScreen):
     def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-engine"):
             yield Static("[bold $primary]Select Cracking Engine[/bold $primary]", id="engine-title")
-            yield Static("[$text-disabled]──────────────────────[/$text-disabled]")
+            yield Static("[$text-disabled]──────────────────────[/]")
             yield Static(
-                " [$text-muted][[/$text-muted][bold $primary]1[/bold $primary][$text-muted]][/$text-muted]  "
-                "[$text]Aircrack-ng[/$text][$text-muted]  CPU-based, standard[/$text-muted]\n"
-                " [$text-muted][[/$text-muted][bold $primary]2[/bold $primary][$text-muted]][/$text-muted]  "
-                "[$text]Hashcat[/$text][$text-muted]     GPU-based, requires CUDA/ROCm[/$text-muted]\n",
+                " [$text-muted][[/][bold $primary]1[/bold $primary][$text-muted]][/]  "
+                "[$text]Aircrack-ng[/][$text-muted]  CPU-based, standard[/]\n"
+                " [$text-muted][[/][bold $primary]2[/bold $primary][$text-muted]][/]  "
+                "[$text]Hashcat[/][$text-muted]     GPU-based, requires CUDA/ROCm[/]\n",
                 id="engine-options",
             )
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  1/2[/$text-muted][$text-muted] select engine[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  1/2[/][$text-muted] select engine[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="engine-hints",
         )
 
@@ -2112,20 +2116,20 @@ class CleanupScreen(SidewinderScreen):
     def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-cleanup"):
             yield Static("[bold $primary]System Cleanup[/bold $primary]", id="cleanup-title")
-            yield Static("[$text-disabled]──────────────[/$text-disabled]")
+            yield Static("[$text-disabled]──────────────[/]")
             yield Static(
-                "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
-                "  [$text-muted][ ][/$text-muted]  Restore NetworkManager / wpa_supplicant\n"
-                "  [$text-muted][ ][/$text-muted]  Disable Monitor Mode\n"
-                "  [$text-muted][ ][/$text-muted]  Terminate background attack processes\n"
-                "  [$text-muted][ ][/$text-muted]  Clear temporary capture files (/tmp/)\n",
+                "[$text-muted]The following actions will be performed:[/]\n\n"
+                "  [$text-muted][ ][/]  Restore NetworkManager / wpa_supplicant\n"
+                "  [$text-muted][ ][/]  Disable Monitor Mode\n"
+                "  [$text-muted][ ][/]  Terminate background attack processes\n"
+                "  [$text-muted][ ][/]  Clear temporary capture files (/tmp/)\n",
                 id="cleanup-body",
             )
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$success] confirm cleanup[/$success]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Enter[/][$success] confirm cleanup[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="cleanup-hints",
         )
 
@@ -2134,21 +2138,21 @@ class CleanupScreen(SidewinderScreen):
 
         # Step 1: Terminate background attack processes
         body.update(
-            "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
-            "  [$text-muted][ ][/$text-muted]  Restore NetworkManager / wpa_supplicant\n"
-            "  [$text-muted][ ][/$text-muted]  Disable Monitor Mode\n"
-            "  [$success][x][/$success]  Terminate background attack processes\n"
-            "  [$text-muted][ ][/$text-muted]  Clear temporary capture files (/tmp/)\n"
+            "[$text-muted]The following actions will be performed:[/]\n\n"
+            "  [$text-muted][ ][/]  Restore NetworkManager / wpa_supplicant\n"
+            "  [$text-muted][ ][/]  Disable Monitor Mode\n"
+            "  [$success][x][/]  Terminate background attack processes\n"
+            "  [$text-muted][ ][/]  Clear temporary capture files (/tmp/)\n"
         )
         await asyncio.sleep(0.5)
 
         # Step 2: Disable Monitor Mode
         body.update(
-            "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
-            "  [$text-muted][ ][/$text-muted]  Restore NetworkManager / wpa_supplicant\n"
-            "  [$success][x][/$success]  Disable Monitor Mode\n"
-            "  [$success][x][/$success]  Terminate background attack processes\n"
-            "  [$text-muted][ ][/$text-muted]  Clear temporary capture files (/tmp/)\n"
+            "[$text-muted]The following actions will be performed:[/]\n\n"
+            "  [$text-muted][ ][/]  Restore NetworkManager / wpa_supplicant\n"
+            "  [$success][x][/]  Disable Monitor Mode\n"
+            "  [$success][x][/]  Terminate background attack processes\n"
+            "  [$text-muted][ ][/]  Clear temporary capture files (/tmp/)\n"
         )
         await asyncio.sleep(0.5)
 
@@ -2157,11 +2161,11 @@ class CleanupScreen(SidewinderScreen):
             await self.app.action_cleanup()
 
         body.update(
-            "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
-            "  [$success][x][/$success]  Restore NetworkManager / wpa_supplicant\n"
-            "  [$success][x][/$success]  Disable Monitor Mode\n"
-            "  [$success][x][/$success]  Terminate background attack processes\n"
-            "  [$text-muted][ ][/$text-muted]  Clear temporary capture files (/tmp/)\n"
+            "[$text-muted]The following actions will be performed:[/]\n\n"
+            "  [$success][x][/]  Restore NetworkManager / wpa_supplicant\n"
+            "  [$success][x][/]  Disable Monitor Mode\n"
+            "  [$success][x][/]  Terminate background attack processes\n"
+            "  [$text-muted][ ][/]  Clear temporary capture files (/tmp/)\n"
         )
         await asyncio.sleep(0.5)
 
@@ -2170,11 +2174,11 @@ class CleanupScreen(SidewinderScreen):
             await self.app._cleanup_manager.cleanup_files()
 
         body.update(
-            "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
-            "  [$success][x][/$success]  Restore NetworkManager / wpa_supplicant\n"
-            "  [$success][x][/$success]  Disable Monitor Mode\n"
-            "  [$success][x][/$success]  Terminate background attack processes\n"
-            "  [$success][x][/$success]  Clear temporary capture files (/tmp/)\n"
+            "[$text-muted]The following actions will be performed:[/]\n\n"
+            "  [$success][x][/]  Restore NetworkManager / wpa_supplicant\n"
+            "  [$success][x][/]  Disable Monitor Mode\n"
+            "  [$success][x][/]  Terminate background attack processes\n"
+            "  [$success][x][/]  Clear temporary capture files (/tmp/)\n"
         )
         self.app._cleaned_up = True
         await asyncio.sleep(1.0)
@@ -2198,18 +2202,18 @@ class ServiceCheckScreen(SidewinderScreen):
     def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-services"):
             yield Static("[bold $primary]Service Management[/bold $primary]", id="services-title")
-            yield Static("[$text-disabled]──────────────────[/$text-disabled]")
+            yield Static("[$text-disabled]──────────────────[/]")
             yield Static(
-                "[$text-muted]Checking for conflicting services...[/$text-muted]",
+                "[$text-muted]Checking for conflicting services...[/]",
                 id="services-status",
             )
             yield ListView(id="service-list")
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  k[/$text-muted][$error] kill conflicting[/$error]"
-            "  [$text-muted]r[/$text-muted][$success] restore[/$success]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  k[/][$error] kill conflicting[/]"
+            "  [$text-muted]r[/][$success] restore[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="services-hints",
         )
 
@@ -2263,26 +2267,26 @@ class MonitorSetupScreen(SidewinderScreen):
         with Vertical(id="sc-monitor"):
             yield Static(
                 f"[bold $primary]Monitor Mode[/bold $primary]  "
-                f"[$text-muted]adapter[/$text-muted] [$secondary]{self.adapter_name}[/$secondary]",
+                f"[$text-muted]adapter[/] [$secondary]{self.adapter_name}[/]",
                 id="monitor-title",
             )
-            yield Static("[$text-disabled]──────────────────────────────[/$text-disabled]")
+            yield Static("[$text-disabled]──────────────────────────────[/]")
             yield Static(id="monitor-status")
             from ..core.tooltips import get_tooltip
             tip = get_tooltip("monitor_mode")
             if tip:
                 yield Static(
-                    f"[$primary]{tip.title}[/$primary]\n"
-                    f"[$text-muted]{tip.description}[/$text-muted]\n"
-                    f"[$text-muted]{tip.example}[/$text-muted]",
+                    f"[$primary]{tip.title}[/]\n"
+                    f"[$text-muted]{tip.description}[/]\n"
+                    f"[$text-muted]{tip.example}[/]",
                     id="tooltip-info",
                 )
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  e[/$text-muted][$success] enable monitor[/$success]"
-            "  [$text-muted]d[/$text-muted][$error] disable monitor[/$error]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  e[/][$success] enable monitor[/]"
+            "  [$text-muted]d[/][$error] disable monitor[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="monitor-hints",
         )
 
@@ -2347,12 +2351,12 @@ class ScanOptionsScreen(SidewinderScreen):
         from textual.widgets import Checkbox, Input
         with Vertical(id="sc-scanopts"):
             yield Static("[bold $primary]Scan Options[/bold $primary]", id="scanopts-title")
-            yield Static("[$text-disabled]────────────[/$text-disabled]")
+            yield Static("[$text-disabled]────────────[/]")
             yield Checkbox("2.4 GHz Band", value=True, id="band-2g")
             yield Checkbox("5 GHz Band", value=False, id="band-5g")
             yield Checkbox("6 GHz Band", value=False, id="band-6g")
             yield Static(
-                "[$text-muted]Specific channels[/$text-muted] [$text-muted](leave blank for all)[/$text-muted]",
+                "[$text-muted]Specific channels[/] [$text-muted](leave blank for all)[/]",
                 id="channels-label",
             )
             yield Input(placeholder="e.g. 1,6,11", id="channels-input")
@@ -2360,8 +2364,8 @@ class ScanOptionsScreen(SidewinderScreen):
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] start scan[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] start scan[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="scanopts-hints",
         )
 
@@ -2418,22 +2422,22 @@ class APDetailsScreen(SidewinderScreen):
         with VerticalScroll(id="sc-apdetails"):
             yield Static(
                 f"[bold $primary]Access Point Details[/bold $primary]  "
-                f"[$text]{self.target.display_name()}[/$text]",
+                f"[$text]{self.target.display_name()}[/]",
                 id="apdetails-title",
             )
-            yield Static("[$text-disabled]──────────────────────────────[/$text-disabled]")
+            yield Static("[$text-disabled]──────────────────────────────[/]")
             pc = privacy_color(self.target.privacy)
             yield Static(
-                f"[$text-muted]BSSID     [/$text-muted]  [$text-muted]{self.target.bssid}[/$text-muted]\n"
-                f"[$text-muted]Channel   [/$text-muted]  [$secondary]{self.target.channel}[/$secondary]\n"
-                f"[$text-muted]Signal    [/$text-muted]  {signal_bar(self.target.signal)} [$text]{self.target.signal} dBm[/$text]\n"
-                f"[$text-muted]Encryption[/$text-muted]  [{pc}]{self.target.privacy}[/{pc}] [$text-muted]{self.target.cipher} {self.target.auth}[/$text-muted]\n"
-                f"[$text-muted]Data Pkts [/$text-muted]  [$text-muted]{self.target.data_packets}[/$text-muted]\n",
+                f"[$text-muted]BSSID     [/]  [$text-muted]{self.target.bssid}[/]\n"
+                f"[$text-muted]Channel   [/]  [$secondary]{self.target.channel}[/]\n"
+                f"[$text-muted]Signal    [/]  {signal_bar(self.target.signal)} [$text]{self.target.signal} dBm[/]\n"
+                f"[$text-muted]Encryption[/]  [{pc}]{self.target.privacy}[/{pc}] [$text-muted]{self.target.cipher} {self.target.auth}[/]\n"
+                f"[$text-muted]Data Pkts [/]  [$text-muted]{self.target.data_packets}[/]\n",
                 id="apdetails-info",
             )
             client_count = sum(1 for c in self.app.session.clients if c.bssid == self.target.bssid)
             yield Static(
-                f"[$primary]Connected Clients[/$primary]  [$text]{client_count}[/$text]",
+                f"[$primary]Connected Clients[/]  [$text]{client_count}[/]",
                 id="apdetails-clients",
             )
             from ..core.intelligence import IntelligenceEngine
@@ -2449,15 +2453,15 @@ class APDetailsScreen(SidewinderScreen):
                     conf_c = "$success" if r.confidence >= 70 else ("$warning" if r.confidence >= 40 else "$error")
                     yield Static(
                         f"  [{conf_c}]{r.confidence}%[/{conf_c}]  "
-                        f"[$text]{r.method}[/$text]  [$text-muted]{r.reason}[/$text-muted]"
+                        f"[$text]{r.method}[/]  [$text-muted]{r.reason}[/]"
                     )
                     for w in r.warnings:
-                        yield Static(f"    [$warning]! {w}[/$warning]")
+                        yield Static(f"    [$warning]! {w}[/]")
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  a[/$text-muted][$text-muted] attack this AP[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  a[/][$text-muted] attack this AP[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="apdetails-hints",
         )
 
@@ -2484,16 +2488,16 @@ class CaptureListScreen(SidewinderScreen):
         from textual.widgets import DataTable
         with Vertical(id="sc-captures"):
             yield Static("[bold $primary]Saved Captures[/bold $primary]", id="captures-title")
-            yield Static("[$text-disabled]──────────────[/$text-disabled]")
+            yield Static("[$text-disabled]──────────────[/]")
             table = DataTable(id="captures-table", cursor_type="row")
             table.add_columns("Filename", "Size", "Modified")
             yield table
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] crack selected[/$text-muted]"
-            "  [$text-muted]j/k[/$text-muted][$text-muted] navigate[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] crack selected[/]"
+            "  [$text-muted]j/k[/][$text-muted] navigate[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="captures-hints",
         )
 
@@ -2581,7 +2585,7 @@ class SessionStatusScreen(SidewinderScreen):
                 best_iface = f"{best.iface} ({best.chipset})"
                 
         yield Static("[bold $primary]Session Status[/bold $primary]", id="status-title")
-        yield Static("[$text-disabled]──────────────────────────────────────────────────[/$text-disabled]")
+        yield Static("[$text-disabled]──────────────────────────────────────────────────[/]")
         yield Static(
             f" [bold $secondary]Active Interface[/bold $secondary] : {best_iface}\n"
             f" [bold $secondary]Selected Target[/bold $secondary]  : {tgt_str}\n"
@@ -2591,7 +2595,7 @@ class SessionStatusScreen(SidewinderScreen):
         )
 
     def compose_prompt(self) -> ComposeResult:
-        yield Static("[$text-muted]  Esc[/$text-muted][$text-muted] back[/$text-muted]", id="status-hints")
+        yield Static("[$text-muted]  Esc[/][$text-muted] back[/]", id="status-hints")
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -2611,17 +2615,17 @@ class SessionListScreen(SidewinderScreen):
         from textual.widgets import DataTable
         with Vertical(id="sc-sessions"):
             yield Static("[bold $primary]Saved Sessions[/bold $primary]", id="sessions-title")
-            yield Static("[$text-disabled]──────────────────────[/$text-disabled]")
+            yield Static("[$text-disabled]──────────────────────[/]")
             table = DataTable(id="sessions-table", cursor_type="row")
             table.add_columns("Session ID", "Start Time", "Target Network", "Captures")
             yield table
 
     def compose_prompt(self) -> ComposeResult:
         yield Static(
-            "[$text-muted]  Enter[/$text-muted][$text-muted] load selected[/$text-muted]"
-            "  [$text-muted]d[/$text-muted][$error] delete selected[/$error]"
-            "  [$text-muted]j/k[/$text-muted][$text-muted] navigate[/$text-muted]"
-            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            "[$text-muted]  Enter[/][$text-muted] load selected[/]"
+            "  [$text-muted]d[/][$error] delete selected[/]"
+            "  [$text-muted]j/k[/][$text-muted] navigate[/]"
+            "  [$text-muted]Esc[/][$text-muted] back[/]",
             id="sessions-hints",
         )
 
