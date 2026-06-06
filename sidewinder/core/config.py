@@ -33,6 +33,14 @@ class SidewinderConfig:
     regulatory_domain: str = "00"  # "00" means global/world. Set to "US", "GB", etc.
     mac_randomization: bool = False
 
+    # Themes
+    theme: str = "midnight"
+    theme_directory: str = "~/.sidewinder/themes"
+    load_user_themes: bool = True
+    load_builtin_themes: bool = True
+    theme_preview: bool = True
+
+
     def save(self, path: str = "~/.sidewinder/config.json") -> None:
         """Save configuration to disk."""
         expanded_path = os.path.expanduser(path)

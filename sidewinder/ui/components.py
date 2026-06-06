@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from rich.panel import Panel
 from rich.text import Text
-from rich.columns import Columns
 from textual.app import ComposeResult
 from textual.reactive import reactive
 from textual.widgets import Static
@@ -25,13 +24,13 @@ class Spacer(Static):
 
 # Two-tone logo: "SIDE" in bright text, "WINDER" in dim — exact opencode style
 LOGO: str = """\
-[#cdd6f4]                                      [/#cdd6f4][#585b70]                                                                  [/#585b70]
-[#cdd6f4]  ██████  ██████  ██████    ████████  [/#cdd6f4][#585b70]██          ██  ██████  ██      ██  ██████    ████████  ██████    [/#585b70]
-[#cdd6f4]██          ██    ██    ██  ██        [/#cdd6f4][#585b70]██          ██    ██    ████    ██  ██    ██  ██        ██    ██  [/#585b70]
-[#cdd6f4]  ████      ██    ██    ██  ██████    [/#cdd6f4][#585b70]██    ██    ██    ██    ██  ██  ██  ██    ██  ██████    ██████    [/#585b70]
-[#cdd6f4]      ██    ██    ██    ██  ██        [/#cdd6f4][#585b70]  ██  ██  ██      ██    ██    ████  ██    ██  ██        ██    ██  [/#585b70]
-[#cdd6f4]██████    ██████  ██████    ████████  [/#cdd6f4][#585b70]    ██  ██      ██████  ██      ██  ██████    ████████  ██    ██  [/#585b70]
-[#cdd6f4]                                      [/#cdd6f4][#585b70]                                                                  [/#585b70]"""
+[$primary]                                      [/$primary][$text-muted]                                                                  [/$text-muted]
+[$primary]  ██████  ██████  ██████    ████████  [/$primary][$text-muted]██          ██  ██████  ██      ██  ██████    ████████  ██████    [/$text-muted]
+[$primary]██          ██    ██    ██  ██        [/$primary][$text-muted]██          ██    ██    ████    ██  ██    ██  ██        ██    ██  [/$text-muted]
+[$primary]  ████      ██    ██    ██  ██████    [/$primary][$text-muted]██    ██    ██    ██    ██  ██  ██  ██    ██  ██████    ██████    [/$text-muted]
+[$primary]      ██    ██    ██    ██  ██        [/$primary][$text-muted]  ██  ██  ██      ██    ██    ████  ██    ██  ██        ██    ██  [/$text-muted]
+[$primary]██████    ██████  ██████    ████████  [/$primary][$text-muted]    ██  ██      ██████  ██      ██  ██████    ████████  ██    ██  [/$text-muted]
+[$primary]                                      [/$primary][$text-muted]                                                                  [/$text-muted]"""
 
 
 # ── Pure helper functions ────────────────────────────────────────────────────
@@ -46,17 +45,17 @@ def signal_bar(signal: int) -> str:
         A Rich markup string with coloured block characters.
     """
     if signal >= -50:
-        filled, color = 10, "#a6e3a1"   # Catppuccin green
+        filled, color = 10, "$success"
     elif signal >= -60:
-        filled, color = 8,  "#a6e3a1"
+        filled, color = 8,  "$success"
     elif signal >= -70:
-        filled, color = 6,  "#f9e2af"   # Catppuccin yellow
+        filled, color = 6,  "$warning"
     elif signal >= -80:
-        filled, color = 4,  "#f9e2af"
+        filled, color = 4,  "$warning"
     elif signal >= -90:
-        filled, color = 2,  "#f38ba8"   # Catppuccin red
+        filled, color = 2,  "$error"
     else:
-        filled, color = 1,  "#f38ba8"
+        filled, color = 1,  "$error"
 
     bar = "█" * filled + "░" * (10 - filled)
     return f"[{color}]{bar}[/{color}]"
@@ -72,11 +71,11 @@ def signal_color(signal: int) -> str:
         Rich colour name string.
     """
     if signal > -50:
-        return "#a6e3a1"   # Catppuccin green
+        return "$success"
     elif signal > -70:
-        return "#f9e2af"   # Catppuccin yellow
+        return "$warning"
     else:
-        return "#f38ba8"   # Catppuccin red
+        return "$error"
 
 
 def privacy_color(privacy: str) -> str:
@@ -89,13 +88,13 @@ def privacy_color(privacy: str) -> str:
         Rich colour name string.
     """
     mapping: dict[str, str] = {
-        "OPN":  "#f38ba8",   # red
-        "WEP":  "#f9e2af",   # yellow
-        "WPA2": "#a6e3a1",   # green
-        "WPA3": "#89dceb",   # sky
-        "WPA":  "#a6e3a1",   # green
+        "OPN":  "$error",
+        "WEP":  "$warning",
+        "WPA2": "$success",
+        "WPA3": "$secondary",
+        "WPA":  "$success",
     }
-    return mapping.get(privacy.upper(), "#cdd6f4")
+    return mapping.get(privacy.upper(), "$text")
 
 
 def eapol_status_display(m1: bool, m2: bool, m3: bool, m4: bool) -> str:
@@ -114,7 +113,7 @@ def eapol_status_display(m1: bool, m2: bool, m3: bool, m4: bool) -> str:
     """
     def label(name: str, captured: bool) -> str:
         """Render a single EAPOL label."""
-        return f"[#a6e3a1 bold]{name}[/#a6e3a1 bold]" if captured else f"[#585b70]{name}[/#585b70]"
+        return f"[bold green]{name}[/bold green]" if captured else f"[dim]{name}[/dim]"
 
     return f"{label('M1', m1)}  {label('M2', m2)}  {label('M3', m3)}  {label('M4', m4)}"
 
@@ -141,23 +140,22 @@ class AdapterStatusWidget(Static):
     mode: reactive[str] = reactive("managed")
 
     def render(self) -> str:  # type: ignore[override]
-        """Render the adapter status using Catppuccin Mocha palette."""
-        # Catppuccin Mocha semantic colors
+        """Render the adapter status using theme variables."""
         status_color = {
-            "ready":      "#a6e3a1",   # green
-            "optimized":  "#a6e3a1",   # green
-            "monitor":    "#89dceb",   # sky
-            "error":      "#f38ba8",   # red
-            "unknown":    "#585b70",   # surface2
-        }.get(self.adapter_status.lower(), "#cdd6f4")
+            "ready":      "$success",
+            "optimized":  "$success",
+            "monitor":    "$secondary",
+            "error":      "$error",
+            "unknown":    "$text-muted",
+        }.get(self.adapter_status.lower(), "$text")
 
-        mode_color = "#89dceb" if self.mode == "monitor" else "#89b4fa"  # sky / blue
+        mode_color = "$secondary" if self.mode == "monitor" else "$accent"
 
         return (
-            f"[#585b70]Interface :[/#585b70] [#cdd6f4]{self.adapter_name}[/#cdd6f4]\n"
-            f"[#585b70]Status    :[/#585b70] [{status_color}]{self.adapter_status}[/{status_color}]\n"
-            f"[#585b70]Channel   :[/#585b70] [#f9e2af]{self.channel}[/#f9e2af]\n"
-            f"[#585b70]Mode      :[/#585b70] [{mode_color}]{self.mode}[/{mode_color}]"
+            f"[$text-muted]Interface :[/$text-muted] [$text]{self.adapter_name}[/$text]\n"
+            f"[$text-muted]Status    :[/$text-muted] [{status_color}]{self.adapter_status}[/{status_color}]\n"
+            f"[$text-muted]Channel   :[/$text-muted] [$warning]{self.channel}[/$warning]\n"
+            f"[$text-muted]Mode      :[/$text-muted] [{mode_color}]{self.mode}[/{mode_color}]"
         )
 
 
@@ -296,28 +294,21 @@ class EAPOLTracker(Static):
     m4: reactive[bool] = reactive(False)
     status: reactive[str] = reactive("waiting")
 
-    def render(self) -> Panel:  # type: ignore[override]
-        """Render the EAPOL handshake tracker panel."""
+    def render(self) -> str:  # type: ignore[override]
+        """Render the EAPOL handshake tracker using theme variables."""
         handshake = eapol_status_display(self.m1, self.m2, self.m3, self.m4)
 
         status_color = {
-            "waiting":  "dim",
-            "partial":  "yellow",
-            "complete": "green",
-            "failed":   "red",
-        }.get(self.status.lower(), "white")
+            "waiting":  "$text-muted",
+            "partial":  "$warning",
+            "complete": "$success",
+            "failed":   "$error",
+        }.get(self.status.lower(), "$text")
 
-        body = Text()
-        body.append("4-Way Handshake  ", style="bold")
-        body.append_text(Text.from_markup(handshake))
-        body.append("\n\n")
-        body.append("Status  ", style="bold")
-        body.append(self.status.upper(), style=f"bold {status_color}")
-
-        return Panel(
-            body,
-            title="[bold]EAPOL Capture[/bold]",
-            border_style="green" if self.status == "complete" else "dim white",
+        return (
+            f"[bold]EAPOL Capture[/bold]\n\n"
+            f"[$text-muted]4-Way Handshake:[/$text-muted] {handshake}\n"
+            f"[$text-muted]Status        :[/$text-muted] [{status_color}]{self.status.upper()}[/{status_color}]"
         )
 
 
@@ -333,11 +324,11 @@ class StatusBar(Static):
         bar = signal_bar(self.signal)
         sc = signal_color(self.signal)
         return (
-            f" [#585b70]{self.adapter}[/#585b70] "
-            f"[#45475a]│[/#45475a] [#89dceb]Ch:{self.channel}[/#89dceb] "
-            f"[#45475a]│[/#45475a] [#cba6f7]{self.mode}[/#cba6f7] "
-            f"[#45475a]│[/#45475a] {bar} [{sc}]{self.signal} dBm[/{sc}] "
-            f"[#45475a]│[/#45475a] [#a6adc8]{self.elapsed}[/#a6adc8]"
+            f" [$text-muted]{self.adapter}[/$text-muted] "
+            f"[$text-disabled]│[/$text-disabled] [$secondary]Ch:{self.channel}[/$secondary] "
+            f"[$text-disabled]│[/$text-disabled] [$primary]{self.mode}[/$primary] "
+            f"[$text-disabled]│[/$text-disabled] {bar} [{sc}]{self.signal} dBm[/{sc}] "
+            f"[$text-disabled]│[/$text-disabled] [$text-muted]{self.elapsed}[/$text-muted]"
         )
 
 
@@ -349,9 +340,9 @@ class ScanStatsBar(Static):
 
     def render(self) -> str:
         return (
-            f" [#cba6f7]Networks[/#cba6f7] [#cdd6f4]{self.networks}[/#cdd6f4]  "
-            f"[#cba6f7]Clients[/#cba6f7] [#cdd6f4]{self.clients}[/#cdd6f4]  "
-            f"[#585b70]elapsed[/#585b70] [#a6adc8]{self.elapsed}[/#a6adc8]"
+            f" [$primary]Networks[/$primary] [$text]{self.networks}[/$text]  "
+            f"[$primary]Clients[/$primary] [$text]{self.clients}[/$text]  "
+            f"[$text-muted]elapsed[/$text-muted] [$text-muted]{self.elapsed}[/$text-muted]"
         )
 
 
@@ -364,14 +355,14 @@ class TargetCard(Static):
     def render(self) -> str:
         pc = privacy_color(self.target.privacy)
         bar = signal_bar(self.target.signal)
-        wps_status = "[#a6e3a1]YES[/#a6e3a1]" if self.target.wps else "[#f38ba8]NO[/#f38ba8]"
+        wps_status = "[$success]YES[/$success]" if self.target.wps else "[$error]NO[/$error]"
         return (
-            f"[#cba6f7]Target: {self.target.display_name()}[/#cba6f7]\n"
-            f"[#585b70]BSSID[/#585b70]     {self.target.bssid}\n"
-            f"[#585b70]Channel[/#585b70]   [#89dceb]{self.target.channel}[/#89dceb]\n"
-            f"[#585b70]Signal[/#585b70]    {bar} [#cdd6f4]{self.target.signal} dBm[/#cdd6f4]\n"
-            f"[#585b70]Security[/#585b70]  [{pc}]{self.target.privacy}[/{pc}] [#a6adc8]({self.target.cipher}/{self.target.auth})[/#a6adc8]\n"
-            f"[#585b70]WPS[/#585b70]       {wps_status}"
+            f"[$primary]Target: {self.target.display_name()}[/$primary]\n"
+            f"[$text-muted]BSSID[/$text-muted]     {self.target.bssid}\n"
+            f"[$text-muted]Channel[/$text-muted]   [$secondary]{self.target.channel}[/$secondary]\n"
+            f"[$text-muted]Signal[/$text-muted]    {bar} [$text]{self.target.signal} dBm[/$text]\n"
+            f"[$text-muted]Security[/$text-muted]  [{pc}]{self.target.privacy}[/{pc}] [$text-muted]({self.target.cipher}/{self.target.auth})[/$text-muted]\n"
+            f"[$text-muted]WPS[/$text-muted]       {wps_status}"
         )
 
 
@@ -386,13 +377,13 @@ class ClientRow(Static):
         self.selected = selected
 
     def render(self) -> str:
-        sel = "[#a6e3a1]✓[/#a6e3a1]" if self.selected else "[#585b70]·[/#585b70]"
+        sel = "[$success]✓[/$success]" if self.selected else "[$text-muted]·[/$text-muted]"
         bar = signal_bar(self.signal)
-        vendor_lbl = f" [#585b70]({self.vendor})[/#585b70]" if self.vendor != "Unknown" else ""
+        vendor_lbl = f" [$text-muted]({self.vendor})[/$text-muted]" if self.vendor != "Unknown" else ""
         return (
-            f" {sel}  [#cdd6f4]{self.mac}[/#cdd6f4]{vendor_lbl}  "
-            f"{bar} [#a6adc8]{self.signal}[/#a6adc8]  "
-            f"[#89dceb]{self.packets}[/#89dceb] pkts"
+            f" {sel}  [$text]{self.mac}[/$text]{vendor_lbl}  "
+            f"{bar} [$text-muted]{self.signal}[/$text-muted]  "
+            f"[$secondary]{self.packets}[/$secondary] pkts"
         )
 
 
@@ -411,11 +402,11 @@ class AttackProgressPanel(Static):
         h = eapol_status_display(self.m1, self.m2, self.m3, self.m4)
         bar = signal_bar(self.signal)
         return (
-            f"[#cba6f7]Attack Engine: {self.method.upper()}[/#cba6f7]\n\n"
-            f"[#585b70]Beacons [/#585b70] [#89dceb]{self.beacons:,}[/#89dceb]\n"
-            f"[#585b70]Data    [/#585b70] [#89dceb]{self.data_pkts:,}[/#89dceb]\n"
-            f"[#585b70]Signal  [/#585b70] {bar} [#cdd6f4]{self.signal} dBm[/#cdd6f4]\n\n"
-            f"[#585b70]Handshake[/#585b70] {h}  [#a6adc8]({self.status.upper()})[/#a6adc8]"
+            f"[$primary]Attack Engine: {self.method.upper()}[/$primary]\n\n"
+            f"[$text-muted]Beacons [/$text-muted] [$secondary]{self.beacons:,}[/$secondary]\n"
+            f"[$text-muted]Data    [/$text-muted] [$secondary]{self.data_pkts:,}[/$secondary]\n"
+            f"[$text-muted]Signal  [/$text-muted] {bar} [$text]{self.signal} dBm[/$text]\n\n"
+            f"[$text-muted]Handshake[/$text-muted] {h}  [$text-muted]({self.status.upper()})[/$text-muted]"
         )
 
 
@@ -433,13 +424,13 @@ class PasswordCard(Static):
     def render(self) -> str:
         time_str = f"{int(self.elapsed // 60):02d}:{int(self.elapsed % 60):02d}"
         return (
-            f"[#a6e3a1 bold]  ✓  PASSWORD CRACKED SUCCESSFULLY[/#a6e3a1 bold]\n"
-            f"[#45475a]  {'─'*44}[/#45475a]\n"
-            f"  [#585b70]SSID    [/#585b70]  [#cdd6f4]{self.ssid}[/#cdd6f4]\n"
-            f"  [#585b70]BSSID   [/#585b70]  [#585b70]{self.bssid}[/#585b70]\n"
-            f"  [#585b70]Password[/#585b70]  [bold #a6e3a1]{self.password}[/bold #a6e3a1]\n"
-            f"  [#585b70]Method  [/#585b70]  [#89dceb]{self.method}[/#89dceb]\n"
-            f"  [#585b70]Keys    [/#585b70]  [#a6adc8]{self.keys:,} tested[/#a6adc8]\n"
-            f"  [#585b70]Time    [/#585b70]  [#a6adc8]{time_str}[/#a6adc8]"
+            f"[$success bold]  ✓  PASSWORD CRACKED SUCCESSFULLY[/$success bold]\n"
+            f"[$text-disabled]  {'─'*44}[/$text-disabled]\n"
+            f"  [$text-muted]SSID    [/$text-muted]  [$text]{self.ssid}[/$text]\n"
+            f"  [$text-muted]BSSID   [/$text-muted]  [$text-muted]{self.bssid}[/$text-muted]\n"
+            f"  [$text-muted]Password[/$text-muted]  [bold $success]{self.password}[/bold $success]\n"
+            f"  [$text-muted]Method  [/$text-muted]  [$secondary]{self.method}[/$secondary]\n"
+            f"  [$text-muted]Keys    [/$text-muted]  [$text-muted]{self.keys:,} tested[/$text-muted]\n"
+            f"  [$text-muted]Time    [/$text-muted]  [$text-muted]{time_str}[/$text-muted]"
         )
 

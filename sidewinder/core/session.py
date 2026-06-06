@@ -12,12 +12,6 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 
-# Avoid circular imports by using TYPE_CHECKING
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
-
 
 @dataclass
 class Network:

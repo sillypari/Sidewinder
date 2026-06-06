@@ -15,7 +15,6 @@ Modern iw commands are used. iwpriv is legacy-only fallback
 from __future__ import annotations
 
 import logging
-import subprocess
 from typing import Optional
 
 from ..core.monitor import (

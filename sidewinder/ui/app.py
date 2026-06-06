@@ -32,6 +32,7 @@ from .screens import (
     ScanScreen,
 )
 from ..core.session import Session
+from ..core.config import SidewinderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ SLASH_COMMANDS = {
     "/status":   "Show current status",
     "/adapter":  "Switch adapter",
     "/theme":    "Switch visual theme (opencode/classic)",
+    "/compact":  "Toggle compact visual mode",
     "/quit":     "Exit Sidewinder",
 }
 
@@ -79,9 +81,9 @@ class SidewinderApp(App):
         self._service_manager = None
         self._cleanup_manager = None
 
-        from .theme import get_textual_themes
-        for name, theme in get_textual_themes().items():
-            self.register_theme(theme)
+        self.settings = SidewinderConfig.load()
+        from .theme_loader import register_themes
+        register_themes(self, self.settings)
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -89,7 +91,10 @@ class SidewinderApp(App):
 
     def on_mount(self) -> None:
         """Initialize adapters, install signal handlers, and show main menu."""
-        self.theme = "opencode"
+        try:
+            self.theme = self.settings.theme
+        except Exception:
+            self.theme = "midnight"
 
         self.push_screen(MainMenuScreen())
         asyncio.create_task(self._initialize())
@@ -196,3 +201,13 @@ class SidewinderApp(App):
                 parts.append(f"Ch:{best.current_mode}")
         parts.append("sidewinder v0.1")
         return " │ ".join(parts)
+
+    def action_toggle_compact(self) -> None:
+        """Toggle compact mode class on the app."""
+        if self.has_class("-compact"):
+            self.remove_class("-compact")
+            self.notify("Compact mode disabled", severity="information")
+        else:
+            self.add_class("-compact")
+            self.notify("Compact mode enabled", severity="information")
+

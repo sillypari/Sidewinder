@@ -1,0 +1,406 @@
+"""Sidewinder Built-in Themes.
+
+Provides 13 curated color schemes for the TUI.
+"""
+from __future__ import annotations
+
+from textual.theme import Theme as TextualTheme
+
+BUILTIN_THEMES: dict[str, TextualTheme] = {
+    # ── DEFAULT ──────────────────────────────────────────────
+    "midnight": TextualTheme(
+        name="midnight",
+        primary="#4CAF50",           # Green — our signature
+        secondary="#00BCD4",         # Cyan — info
+        background="#0A0A0A",        # Near-black
+        surface="#161B22",           # Dark panel
+        panel="#21262D",             # Lighter panel
+        warning="#FF9800",           # Orange
+        error="#F44336",             # Red
+        success="#00E676",           # Bright green
+        accent="#9C27B0",            # Purple — accent
+        dark=True,
+        variables={
+            "input-cursor-background": "#4CAF50",
+            "footer-background": "transparent",
+            "method-scan": "#0ea5e9",
+            "method-deauth": "#ef4444",
+            "method-passive": "#22c55e",
+            "method-pmkid": "#f59e0b",
+            "method-wps": "#8b5cf6",
+            "method-evil-twin": "#f97316",
+            "method-crack": "#14b8a6",
+            "signal-strong": "#22c55e",
+            "signal-medium": "#f59e0b",
+            "signal-weak": "#ef4444",
+            "enc-wpa3": "#00BCD4",
+            "enc-wpa2": "#22c55e",
+            "enc-wpa": "#4CAF50",
+            "enc-wep": "#f59e0b",
+            "enc-open": "#ef4444",
+            "sidebar-active": "#22c55e",
+            "sidebar-inactive": "#6b7280",
+            "sidebar-monitor": "#0ea5e9",
+        },
+    ),
+
+    # ── CYBERPUNK ────────────────────────────────────────────
+    "cyberpunk": TextualTheme(
+        name="cyberpunk",
+        primary="#FF00FF",           # Magenta
+        secondary="#00FFFF",         # Cyan
+        background="#0D0221",        # Deep purple-black
+        surface="#1A0533",           # Dark purple
+        panel="#2D1B69",             # Purple panel
+        warning="#FFD700",           # Gold
+        error="#FF3366",             # Hot pink
+        success="#39FF14",           # Neon green
+        accent="#FF6600",            # Neon orange
+        dark=True,
+        variables={
+            "input-cursor-background": "#FF00FF",
+            "footer-background": "transparent",
+            "method-scan": "#00FFFF",
+            "method-deauth": "#FF3366",
+            "method-passive": "#39FF14",
+            "method-pmkid": "#FFD700",
+            "method-wps": "#FF00FF",
+            "method-evil-twin": "#FF6600",
+            "method-crack": "#00FFFF",
+            "signal-strong": "#39FF14",
+            "signal-medium": "#FFD700",
+            "signal-weak": "#FF3366",
+            "enc-wpa3": "#00FFFF",
+            "enc-wpa2": "#39FF14",
+            "enc-wpa": "#FF00FF",
+            "enc-wep": "#FFD700",
+            "enc-open": "#FF3366",
+            "sidebar-active": "#39FF14",
+            "sidebar-inactive": "#6b7280",
+            "sidebar-monitor": "#00FFFF",
+        },
+    ),
+
+    # ── HACKER (Green on Black) ──────────────────────────────
+    "hacker": TextualTheme(
+        name="hacker",
+        primary="#00FF00",
+        secondary="#3A9F3A",
+        background="#000000",
+        surface="#0A0A0A",
+        panel="#111111",
+        warning="#00FF66",
+        error="#FF0000",
+        success="#00DD00",
+        accent="#00FF33",
+        dark=True,
+        variables={
+            "input-cursor-background": "#00FF00",
+            "footer-background": "transparent",
+            "method-scan": "#00FF00",
+            "method-deauth": "#FF0000",
+            "method-passive": "#00DD00",
+            "method-pmkid": "#00FF66",
+            "method-wps": "#00FF33",
+            "method-evil-twin": "#3A9F3A",
+            "method-crack": "#00FF00",
+            "signal-strong": "#00FF00",
+            "signal-medium": "#00FF66",
+            "signal-weak": "#FF0000",
+            "enc-wpa3": "#00FF00",
+            "enc-wpa2": "#00DD00",
+            "enc-wpa": "#00FF33",
+            "enc-wep": "#00FF66",
+            "enc-open": "#FF0000",
+            "sidebar-active": "#00FF00",
+            "sidebar-inactive": "#3A9F3A",
+            "sidebar-monitor": "#00FF00",
+        },
+    ),
+
+    # ── GALAXY ───────────────────────────────────────────────
+    "galaxy": TextualTheme(
+        name="galaxy",
+        primary="#C45AFF",
+        secondary="#a684e8",
+        background="#0F0F1F",
+        surface="#1E1E3F",
+        panel="#2D2B55",
+        warning="#FFD700",
+        error="#FF4500",
+        success="#00FA9A",
+        accent="#FF69B4",
+        dark=True,
+        variables={
+            "input-cursor-background": "#C45AFF",
+            "footer-background": "transparent",
+            "method-scan": "#a684e8",
+            "method-deauth": "#FF4500",
+            "method-passive": "#00FA9A",
+            "method-pmkid": "#FFD700",
+            "method-wps": "#C45AFF",
+            "method-evil-twin": "#FF69B4",
+            "method-crack": "#a684e8",
+            "signal-strong": "#00FA9A",
+            "signal-medium": "#FFD700",
+            "signal-weak": "#FF4500",
+            "enc-wpa3": "#a684e8",
+            "enc-wpa2": "#00FA9A",
+            "enc-wpa": "#C45AFF",
+            "enc-wep": "#FFD700",
+            "enc-open": "#FF4500",
+            "sidebar-active": "#00FA9A",
+            "sidebar-inactive": "#6b7280",
+            "sidebar-monitor": "#a684e8",
+        },
+    ),
+
+    # ── SUNSET ───────────────────────────────────────────────
+    "sunset": TextualTheme(
+        name="sunset",
+        primary="#FF7E5F",
+        secondary="#FEB47B",
+        background="#2B2139",
+        surface="#362C47",
+        panel="#413555",
+        warning="#FFD93D",
+        error="#FF5757",
+        success="#98D8AA",
+        accent="#B983FF",
+        dark=True,
+        variables={
+            "input-cursor-background": "#FF7E5F",
+            "footer-background": "transparent",
+            "method-scan": "#FEB47B",
+            "method-deauth": "#FF5757",
+            "method-passive": "#98D8AA",
+            "method-pmkid": "#FFD93D",
+            "method-wps": "#B983FF",
+            "method-evil-twin": "#FF7E5F",
+            "method-crack": "#FEB47B",
+            "signal-strong": "#98D8AA",
+            "signal-medium": "#FFD93D",
+            "signal-weak": "#FF5757",
+            "enc-wpa3": "#FEB47B",
+            "enc-wpa2": "#98D8AA",
+            "enc-wpa": "#FF7E5F",
+            "enc-wep": "#FFD93D",
+            "enc-open": "#FF5757",
+            "sidebar-active": "#98D8AA",
+            "sidebar-inactive": "#6b7280",
+            "sidebar-monitor": "#FEB47B",
+        },
+    ),
+
+    # ── AURORA ───────────────────────────────────────────────
+    "aurora": TextualTheme(
+        name="aurora",
+        primary="#45FFB3",
+        secondary="#A1FCDF",
+        background="#0A1A2F",
+        surface="#142942",
+        panel="#1E3655",
+        warning="#FFE156",
+        error="#FF6B6B",
+        success="#64FFDA",
+        accent="#DF7BFF",
+        dark=True,
+        variables={
+            "input-cursor-background": "#45FFB3",
+            "footer-background": "transparent",
+            "method-scan": "#A1FCDF",
+            "method-deauth": "#FF6B6B",
+            "method-passive": "#64FFDA",
+            "method-pmkid": "#FFE156",
+            "method-wps": "#DF7BFF",
+            "method-evil-twin": "#45FFB3",
+            "method-crack": "#A1FCDF",
+            "signal-strong": "#64FFDA",
+            "signal-medium": "#FFE156",
+            "signal-weak": "#FF6B6B",
+            "enc-wpa3": "#A1FCDF",
+            "enc-wpa2": "#64FFDA",
+            "enc-wpa": "#45FFB3",
+            "enc-wep": "#FFE156",
+            "enc-open": "#FF6B6B",
+            "sidebar-active": "#64FFDA",
+            "sidebar-inactive": "#6b7280",
+            "sidebar-monitor": "#A1FCDF",
+        },
+    ),
+
+    # ── NAUTILUS ─────────────────────────────────────────────
+    "nautilus": TextualTheme(
+        name="nautilus",
+        primary="#0077BE",
+        secondary="#20B2AA",
+        background="#001F3F",
+        surface="#003366",
+        panel="#005A8C",
+        warning="#FFD700",
+        error="#FF6347",
+        success="#32CD32",
+        accent="#FF8C00",
+        dark=True,
+        variables={
+            "input-cursor-background": "#0077BE",
+            "footer-background": "transparent",
+        },
+    ),
+
+    # ── COBALT ───────────────────────────────────────────────
+    "cobalt": TextualTheme(
+        name="cobalt",
+        primary="#334D5C",
+        secondary="#66B2FF",
+        background="#1F262A",
+        surface="#27343B",
+        panel="#2D3E46",
+        warning="#FFAA22",
+        error="#E63946",
+        success="#4CAF50",
+        accent="#D94E64",
+        dark=True,
+        variables={
+            "input-cursor-background": "#66B2FF",
+            "footer-background": "transparent",
+        },
+    ),
+
+    # ── TWILIGHT ─────────────────────────────────────────────
+    "twilight": TextualTheme(
+        name="twilight",
+        primary="#367588",
+        secondary="#5F9EA0",
+        background="#191970",
+        surface="#3B3B6D",
+        panel="#4C516D",
+        warning="#FFD700",
+        error="#FF6347",
+        success="#00FA9A",
+        accent="#FF7F50",
+        dark=True,
+        variables={
+            "input-cursor-background": "#367588",
+            "footer-background": "transparent",
+        },
+    ),
+
+    # ── SYNTHWAVE ────────────────────────────────────────────
+    "synthwave": TextualTheme(
+        name="synthwave",
+        primary="#FF006E",
+        secondary="#8338EC",
+        background="#0F0A19",
+        surface="#1A0F26",
+        panel="#251833",
+        warning="#FFBE0B",
+        error="#FB5607",
+        success="#06FFA5",
+        accent="#3A86FF",
+        dark=True,
+        variables={
+            "input-cursor-background": "#FF006E",
+            "footer-background": "transparent",
+            "method-scan": "#3A86FF",
+            "method-deauth": "#FB5607",
+            "method-passive": "#06FFA5",
+            "method-pmkid": "#FFBE0B",
+            "method-wps": "#8338EC",
+            "method-evil-twin": "#FF006E",
+            "method-crack": "#3A86FF",
+            "signal-strong": "#06FFA5",
+            "signal-medium": "#FFBE0B",
+            "signal-weak": "#FB5607",
+            "enc-wpa3": "#3A86FF",
+            "enc-wpa2": "#06FFA5",
+            "enc-wpa": "#FF006E",
+            "enc-wep": "#FFBE0B",
+            "enc-open": "#FB5607",
+            "sidebar-active": "#06FFA5",
+            "sidebar-inactive": "#6b7280",
+            "sidebar-monitor": "#3A86FF",
+        },
+    ),
+
+    # ── HYPERNOVA ────────────────────────────────────────────
+    "hypernova": TextualTheme(
+        name="hypernova",
+        primary="#00F5D4",
+        secondary="#7B2FF7",
+        background="#0B0B12",
+        surface="#121225",
+        panel="#1A1A32",
+        warning="#FEE440",
+        error="#F72585",
+        success="#80FF72",
+        accent="#4CC9F0",
+        dark=True,
+        variables={
+            "input-cursor-background": "#4CC9F0",
+            "footer-background": "transparent",
+            "method-scan": "#00F5D4",
+            "method-deauth": "#F72585",
+            "method-passive": "#80FF72",
+            "method-pmkid": "#FEE440",
+            "method-wps": "#7B2FF7",
+            "method-evil-twin": "#4CC9F0",
+            "method-crack": "#00F5D4",
+            "signal-strong": "#80FF72",
+            "signal-medium": "#FEE440",
+            "signal-weak": "#F72585",
+            "enc-wpa3": "#00F5D4",
+            "enc-wpa2": "#80FF72",
+            "enc-wpa": "#00F5D4",
+            "enc-wep": "#FEE440",
+            "enc-open": "#F72585",
+            "sidebar-active": "#80FF72",
+            "sidebar-inactive": "#6b7280",
+            "sidebar-monitor": "#00F5D4",
+        },
+    ),
+
+    # ── MANUSCRIPT (Light Theme) ─────────────────────────────
+    "manuscript": TextualTheme(
+        name="manuscript",
+        primary="#2C4251",
+        secondary="#6B4423",
+        background="#F5F1E9",
+        surface="#EBE6D9",
+        panel="#E0DAC8",
+        warning="#B4846C",
+        error="#A94442",
+        success="#2D5A27",
+        accent="#8B4513",
+        dark=False,
+        variables={
+            "input-cursor-background": "#2C4251",
+            "input-selection-background": "#2C4251 25%",
+            "footer-background": "#2C4251",
+            "footer-key-foreground": "#F5F1E9",
+            "footer-description-foreground": "#F5F1E9",
+        },
+    ),
+
+    # ── MATTERMOST ───────────────────────────────────────────
+    "mattermost": TextualTheme(
+        name="mattermost",
+        primary="#1C58D9",
+        secondary="#26A186",
+        background="#1E325C",
+        surface="#253D6B",
+        panel="#2E4A7A",
+        warning="#F5A623",
+        error="#D24B4E",
+        success="#3DB887",
+        accent="#8551FA",
+        dark=True,
+        variables={
+            "input-cursor-background": "#1C58D9",
+            "footer-background": "transparent",
+        },
+    ),
+}
+
+# Legacy aliases for backward compatibility
+THEMES = BUILTIN_THEMES

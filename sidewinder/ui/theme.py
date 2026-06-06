@@ -2,108 +2,119 @@
 
 Implements a dynamic theme system mapped to TCSS variables.
 """
-from dataclasses import dataclass
-from typing import Dict
+from __future__ import annotations
+
+from pathlib import Path
+from pydantic import BaseModel, Field
+from textual.theme import Theme as TextualTheme
 
 
-@dataclass
-class SidewinderTheme:
-    """Semantic color slots for the TUI, inspired by opencode."""
-
-    # Core
-    primary: str = "#89b4fd"        # Blue — success, active, selected
-    secondary: str = "#cba6f7"      # Mauve — info, headers, highlights
-    accent: str = "#fab387"         # Peach — special actions
-    error: str = "#f38ba8"          # Red — errors, danger
-    warning: str = "#f9e2af"        # Yellow — warnings, caution
-    success: str = "#a6e3a1"        # Green — passwords found
-    info: str = "#89b4fa"           # Blue — informational
-
-    # Text
-    text: str = "#cdd6f4"           # Primary text (catppuccin text)
-    text_muted: str = "#a6adc8"     # Secondary text (catppuccin subtext)
-    text_dim: str = "#585b70"       # Dimmed text (surface2)
-
-    # Background
-    bg: str = "#1e1e2e"             # Base screen background
-    bg_panel: str = "#181825"       # Mantle (panel/card background)
-    bg_element: str = "#313244"     # Surface0 (input, button background)
-    bg_hover: str = "#45475a"       # Surface1 (hover state)
-
-    # Border
-    border: str = "#45475a"         # Default subtle border (surface1)
-    border_active: str = "#89b4fa"  # Focused/active border
-    border_subtle: str = "#313244"  # Very subtle separation
-
-    # WiFi-specific
-    signal_strong: str = "#a6e3a1"
-    signal_medium: str = "#f9e2af"
-    signal_weak: str = "#f38ba8"
-    enc_wpa3: str = "#cba6f7"
-    enc_wpa2: str = "#a6e3a1"
-    enc_wpa: str = "#89b4fa"
-    enc_wep: str = "#f9e2af"
-    enc_open: str = "#f38ba8"
+class MethodStyles(BaseModel):
+    """HTTP method colors — WiFi equivalents for attack types."""
+    scan: str = "#0ea5e9"         # cyan — scan
+    deauth: str = "#ef4444"       # red — deauth (aggressive)
+    passive: str = "#22c55e"      # green — passive (safe)
+    pmkid: str = "#f59e0b"        # amber — PMKID
+    wps: str = "#8b5cf6"          # purple — WPS
+    evil_twin: str = "#f97316"    # orange — evil twin
+    crack: str = "#14b8a6"        # teal — cracking
 
 
-# The exact opencode aesthetic is highly inspired by Catppuccin Mocha.
-OPENCODE_THEME = SidewinderTheme()
-
-# Fallback/Legacy theme (classic Sidewinder green)
-CLASSIC_THEME = SidewinderTheme(
-    primary="#4CAF50",
-    secondary="#00BCD4",
-    text="#E6EDF3",
-    text_muted="#8B949E",
-    bg="#0A0A0A",
-    bg_panel="#161B22",
-    bg_element="#21262D",
-    bg_hover="#18181B",
-    border="#30363D",
-    border_active="#4CAF50"
-)
-
-THEMES: Dict[str, SidewinderTheme] = {
-    "opencode": OPENCODE_THEME,
-    "classic": CLASSIC_THEME,
-}
+class SignalStyles(BaseModel):
+    """WiFi signal color thresholds."""
+    strong: str = "#22c55e"       # -30 to -50 dBm
+    medium: str = "#f59e0b"       # -51 to -70 dBm
+    weak: str = "#ef4444"         # -71 to -90 dBm
 
 
-from textual.theme import Theme
+class EncryptionStyles(BaseModel):
+    """Encryption type colors."""
+    wpa3: str = "#00BCD4"
+    wpa2: str = "#22c55e"
+    wpa: str = "#4CAF50"
+    wep: str = "#f59e0b"
+    open: str = "#ef4444"
 
-def get_textual_themes() -> dict[str, Theme]:
-    """Convert SidewinderThemes to Textual Themes."""
-    textual_themes = {}
-    for name, t in THEMES.items():
-        textual_themes[name] = Theme(
-            name=name,
-            primary=t.primary,
-            secondary=t.secondary,
-            accent=t.accent,
-            warning=t.warning,
-            error=t.error,
-            success=t.success,
-            foreground=t.text,
-            background=t.bg,
-            surface=t.bg_element,
-            panel=t.bg_panel,
-            dark=True,
-            variables={
-                "text-muted": t.text_muted,
-                "text-dim": t.text_dim,
-                "bg-hover": t.bg_hover,
-                "border": t.border,
-                "border-active": t.border_active,
-                "border-subtle": t.border_subtle,
-                "signal-strong": t.signal_strong,
-                "signal-medium": t.signal_medium,
-                "signal-weak": t.signal_weak,
-                "enc-wpa3": t.enc_wpa3,
-                "enc-wpa2": t.enc_wpa2,
-                "enc-wpa": t.enc_wpa,
-                "enc-wep": t.enc_wep,
-                "enc-open": t.enc_open,
-            }
+
+class SidebarStyles(BaseModel):
+    """Sidebar (adapter list) colors."""
+    active_adapter: str = "#22c55e"
+    inactive_adapter: str = "#6b7280"
+    monitor_mode: str = "#0ea5e9"
+
+
+class Theme(BaseModel):
+    """Full theme definition for Sidewinder."""
+    name: str = Field(exclude=True)
+
+    # Core Textual colors
+    primary: str
+    secondary: str | None = None
+    background: str | None = None
+    surface: str | None = None
+    panel: str | None = None
+    warning: str | None = None
+    error: str | None = None
+    success: str | None = None
+    accent: str | None = None
+    dark: bool = True
+
+    # WiFi-specific styles
+    method: MethodStyles = Field(default_factory=MethodStyles)
+    signal: SignalStyles = Field(default_factory=SignalStyles)
+    encryption: EncryptionStyles = Field(default_factory=EncryptionStyles)
+    sidebar: SidebarStyles = Field(default_factory=SidebarStyles)
+
+    # Metadata
+    author: str | None = Field(default=None, exclude=True)
+    description: str | None = Field(default=None, exclude=True)
+
+    def to_textual_theme(self) -> TextualTheme:
+        """Convert to Textual Theme with variables."""
+        colors = {
+            "primary": self.primary,
+            "secondary": self.secondary,
+            "background": self.background,
+            "surface": self.surface,
+            "panel": self.panel,
+            "warning": self.warning,
+            "error": self.error,
+            "success": self.success,
+            "accent": self.accent,
+        }
+        colors = {k: v for k, v in colors.items() if v is not None}
+
+        variables = {
+            # Method colors
+            "method-scan": self.method.scan,
+            "method-deauth": self.method.deauth,
+            "method-passive": self.method.passive,
+            "method-pmkid": self.method.pmkid,
+            "method-wps": self.method.wps,
+            "method-evil-twin": self.method.evil_twin,
+            "method-crack": self.method.crack,
+            # Signal colors
+            "signal-strong": self.signal.strong,
+            "signal-medium": self.signal.medium,
+            "signal-weak": self.signal.weak,
+            # Encryption colors
+            "enc-wpa3": self.encryption.wpa3,
+            "enc-wpa2": self.encryption.wpa2,
+            "enc-wpa": self.encryption.wpa,
+            "enc-wep": self.encryption.wep,
+            "enc-open": self.encryption.open,
+            # Sidebar colors
+            "sidebar-active": self.sidebar.active_adapter,
+            "sidebar-inactive": self.sidebar.inactive_adapter,
+            "sidebar-monitor": self.sidebar.monitor_mode,
+            # UI variables (matching Posting's pattern)
+            "input-cursor-background": self.primary,
+            "footer-background": "transparent",
+        }
+
+        return TextualTheme(
+            name=self.name,
+            dark=self.dark,
+            **colors,
+            variables=variables,
         )
-    return textual_themes
-

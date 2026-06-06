@@ -15,7 +15,6 @@ Protection pattern:
 from __future__ import annotations
 
 import logging
-import subprocess
 
 from ..core.errors import Category, Severity, SidewinderError
 from .base import Adapter

@@ -4,9 +4,43 @@
 
 /* ── Global ─────────────────────────────────────────────────────────────── */
 
+$input-cursor-background: #4CAF50;
+$footer-background: transparent;
+$method-scan: #0ea5e9;
+$method-deauth: #ef4444;
+$method-passive: #22c55e;
+$method-pmkid: #f59e0b;
+$method-wps: #8b5cf6;
+$method-evil-twin: #f97316;
+$method-crack: #14b8a6;
+$signal-strong: #22c55e;
+$signal-medium: #f59e0b;
+$signal-weak: #ef4444;
+$enc-wpa3: #00BCD4;
+$enc-wpa2: #22c55e;
+$enc-wpa: #4CAF50;
+$enc-wep: #f59e0b;
+$enc-open: #ef4444;
+$sidebar-active: #22c55e;
+$sidebar-inactive: #6b7280;
+$sidebar-monitor: #0ea5e9;
+
+
+
 Screen {
     background: $background;
     color: $foreground;
+}
+
+/* ── ScrollableContainer ────────────────────────────────────────────────── */
+
+ScrollableContainer {
+    background: $panel;
+    border: round $accent 40%;
+}
+
+ScrollableContainer:focus-within {
+    border: round $accent 100%;
 }
 
 /* ── Header & Footer ────────────────────────────────────────────────────── */
@@ -25,15 +59,22 @@ Header .header--title {
 Footer {
     background: $panel;
     color: $foreground;
+    border: none;
     border-top: tall $surface;
 }
 
 /* ── DataTable ──────────────────────────────────────────────────────────── */
 
 DataTable {
-    background: $panel;
+    background: transparent;
     color: $foreground;
-    border: tall $surface;
+    border: none;
+    border-left: thick transparent;
+}
+
+DataTable:focus {
+    border: none;
+    border-left: thick $accent;
 }
 
 DataTable > .datatable--header {
@@ -76,8 +117,12 @@ DataTable > .datatable--odd-row {
 
 OptionList {
     background: $panel;
-    border: tall $surface;
+    border: round $accent 40%;
     color: $foreground;
+}
+
+OptionList:focus {
+    border: round $accent 100%;
 }
 
 OptionList > .option-list--option-highlighted {
@@ -93,7 +138,7 @@ OptionList > .option-list--option-hover {
 
 /* ── ListView & ListItem ────────────────────────────────────────────────── */
 
-ListView {
+ListView, ListView:focus, ListView:focus-within {
     background: $background;
     border: none;
     width: 56;
@@ -103,7 +148,7 @@ ListView {
 
 ListItem {
     padding: 0 2;
-    height: 3;
+    height: 1;
     color: $foreground;
     background: $background;
 }
@@ -129,53 +174,59 @@ ListItem > Label {
 
 Input {
     background: $surface;
-    border: tall $surface;
+    border: none;
+    border-left: thick $accent 40%;
     color: $foreground;
 }
 
 Input:focus {
-    border: tall $primary;
+    border: none;
+    border-left: thick $accent 100%;
 }
 
 Input.-valid {
-    border: tall $success;
+    border: none;
+    border-left: thick $success;
 }
 
 Input.-invalid {
-    border: tall $error;
+    border: none;
+    border-left: thick $error;
 }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 
 Button {
     background: $surface;
-    border: tall $surface;
+    border: none;
     color: $foreground;
 }
 
 Button:focus {
-    border: tall $primary;
-    color: $primary;
+    background: $primary;
+    color: $background;
+    text-style: bold;
+    border: none;
 }
 
 Button.-primary {
     background: $primary;
     color: $background;
-    border: tall $primary;
+    border: none;
     text-style: bold;
 }
 
 Button.-danger {
     background: $error;
     color: $background;
-    border: tall $error;
+    border: none;
     text-style: bold;
 }
 
 Button.-success {
     background: $success;
     color: $background;
-    border: tall $success;
+    border: none;
     text-style: bold;
 }
 
@@ -193,12 +244,7 @@ ProgressBar .bar--indeterminate {
     color: $secondary;
 }
 
-/* ── ScrollableContainer ────────────────────────────────────────────────── */
 
-ScrollableContainer {
-    background: $panel;
-    border: tall $surface;
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    LAYOUT CONTAINERS
@@ -255,11 +301,10 @@ Center {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 #scan-stats {
-    background: $panel;
     color: $foreground;
-    padding: 0 2;
     height: 1;
-    border-bottom: tall $surface;
+    margin: 0;
+    content-align: right middle;
 }
 
 #scan-table-container {
@@ -271,10 +316,22 @@ Center {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 #eapol-tracker {
-    border: tall $surface;
+    border: none;
+    background: transparent;
+    padding: 0;
+    height: auto;
+}
+
+#attack-panel {
+    border: round $accent 40%;
     background: $panel;
     padding: 1 2;
+    margin: 1 0;
     height: auto;
+}
+
+#attack-panel:focus-within {
+    border: round $accent 100%;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -382,10 +439,14 @@ Center {
 /* ── Error / Warning Cards ── */
 
 .panel {
-    border: tall $surface;
+    border: round $accent 40%;
     background: $panel;
     padding: 1 2;
     margin: 0 1;
+}
+
+.panel:focus-within {
+    border: round $accent 100%;
 }
 
 .panel--title {
@@ -421,7 +482,7 @@ Center {
     padding: 0;
 }
 
-#scan-title, #target-title, #method-title, #capture-title,
+#target-title, #method-title, #capture-title,
 #deauth-title, #crack-title, #result-title, #resume-title {
     padding: 1 0 1 0;
     color: $secondary;
@@ -448,8 +509,12 @@ Center {
 
 #capture-panels {
     height: auto;
-    border: tall $surface;
+    border: round $accent 40%;
     background: $panel;
+}
+
+#capture-panels:focus-within {
+    border: round $accent 100%;
 }
 
 #stats-panel {
@@ -466,9 +531,13 @@ Center {
 }
 
 #crack-stats-panel {
-    border: tall $surface;
+    border: round $accent 40%;
     background: $panel;
     padding: 1 2;
+}
+
+#crack-stats-panel:focus-within {
+    border: round $accent 100%;
 }
 
 #method-list {
@@ -492,12 +561,21 @@ Center {
 }
 
 #scan-header {
-    height: 1;
-    padding: 0;
+    height: 3;
+    layout: horizontal;
+    align: left middle;
+    background: $panel;
+    border-bottom: tall $surface;
+    padding: 0 2;
 }
 
-#scan-status {
-    text-align: right;
+#scan-title {
+    color: $primary;
+    text-style: bold;
+    height: 1;
+    width: 1fr;
+    margin: 0;
+    content-align: left middle;
 }
 
 #sc-wordlist, #sc-engine, #sc-cleanup, #sc-services,
@@ -551,4 +629,81 @@ Center {
 #channels-label {
     padding: 1 0 0 0;
 }
+
+/* ── Theme Selector Screen ────────────────────────────────── */
+
+#theme-select-container {
+    padding: 1 3;
+}
+
+#theme-title {
+    padding: 1 0 1 0;
+    color: $secondary;
+    text-style: bold;
+}
+
+#theme-list {
+    background: $panel;
+    border: tall $surface;
+    color: $foreground;
+}
+
+/* ── Section Pattern (From Posting) ───────────────────────── */
+
+.section {
+    border: round $accent 40%;
+    border-title-color: $secondary;
+    border-title-align: right;
+}
+
+.section:focus-within {
+    border: round $accent 100%;
+    border-title-color: $foreground;
+    border-title-style: bold;
+}
+
+/* ── Global Scrollbars (From Posting) ─────────────────────── */
+
+* {
+    scrollbar-color: $primary 10%;
+    scrollbar-color-hover: $primary 80%;
+    scrollbar-color-active: $primary;
+    scrollbar-size-vertical: 1;
+}
+
+*:focus {
+    scrollbar-color: $primary 50%;
+}
+
+/* ── Compact Mode ─────────────────────────────────────────── */
+
+.-compact Header {
+    padding: 0 1;
+}
+
+.-compact Footer {
+    padding-left: 0;
+}
+
+.-compact .section {
+    border: none;
+}
+
+.-compact Screen {
+    padding: 0;
+}
+
+.-compact DataTable {
+    padding: 0;
+}
+
+.-compact #logo {
+    display: none;
+}
+
+.-compact #scan-header {
+    height: 1;
+}
+
+
 

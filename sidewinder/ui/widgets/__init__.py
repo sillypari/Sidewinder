@@ -1,0 +1,1 @@
+"""Sidewinder custom widgets package."""
