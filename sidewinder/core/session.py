@@ -162,10 +162,21 @@ class Session:
         Returns:
             Absolute path of the file that was written.
         """
-        save_path = os.path.expanduser(path or self.DEFAULT_PATH)
+        from .config import expand_user_path
+        save_path = expand_user_path(path or self.DEFAULT_PATH)
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         with open(save_path, "w") as f:
             json.dump(asdict(self), f, indent=2, default=str)
+        
+        try:
+            archive_dir = expand_user_path("~/.sidewinder/sessions")
+            os.makedirs(archive_dir, exist_ok=True)
+            archive_path = os.path.join(archive_dir, f"{self.id}.json")
+            with open(archive_path, "w") as f:
+                json.dump(asdict(self), f, indent=2, default=str)
+        except Exception:
+            pass
+
         return save_path
 
     @classmethod
@@ -187,7 +198,8 @@ class Session:
         Returns:
             A fully populated Session, or None if the file does not exist.
         """
-        load_path = os.path.expanduser(path or cls.DEFAULT_PATH)
+        from .config import expand_user_path
+        load_path = expand_user_path(path or cls.DEFAULT_PATH)
         if not os.path.exists(load_path):
             return None
 

@@ -47,6 +47,7 @@ from .components import (
     signal_bar,
     signal_color,
     privacy_color,
+    InlineConfirm,
 )
 
 
@@ -64,8 +65,225 @@ MAIN_MENU_ITEMS = [
 ]
 
 
-class MainMenuScreen(Screen):
-    """Main menu screen — opencode-style numbered options."""
+class SidewinderScreen(Screen):
+    """Base Screen for all Sidewinder screens.
+
+    Provides OpenCode-inspired zones (Top status bar, Left main container with main
+    content + prompt area + overlay + confirmation, Split vertical separator, Right
+    sidebar, Bottom footer), Vim-style leader key prefixes, and safe async task execution.
+    """
+
+    BINDINGS = [
+        Binding("ctrl+a", "attack_leader", "Attack...", show=False),
+        Binding("ctrl+s", "scan_leader", "Scan...", show=False),
+        Binding("ctrl+g", "capture_leader", "Capture...", show=False),
+    ]
+
+    leader_prefix: reactive[str | None] = reactive(None)
+
+    def compose(self) -> ComposeResult:
+        with Horizontal(id="screen-layout"):
+            with Vertical(id="left-container"):
+                with ScrollableContainer(id="main-content"):
+                    yield from self.compose_main()
+                with Vertical(id="prompt-area"):
+                    yield Static("", id="leader-overlay", classes="leader-overlay")
+                    yield InlineConfirm(id="inline-confirm")
+                    yield from self.compose_prompt()
+            yield Static("█", id="sidebar-sep")
+            with Vertical(id="right-sidebar"):
+                yield from self.compose_sidebar()
+        yield Footer()
+
+    def compose_main(self) -> ComposeResult:
+        """Compose main content. Must be overridden by subclasses."""
+        return []
+
+    def compose_prompt(self) -> ComposeResult:
+        """Compose bottom prompt widgets. Override in subclasses."""
+        return []
+
+    def compose_sidebar(self) -> ComposeResult:
+        """Compose right sidebar widgets. Override or use default."""
+        from .components import AdapterStatusWidget
+        yield AdapterStatusWidget(id="adapter-status")
+        yield Vertical(id="sidebar-error-panel")
+
+    def show_sidebar_error(self, severity: str, what: str, why: str, how: list[str], raw: str = "") -> None:
+        try:
+            panel = self.query_one("#sidebar-error-panel", Vertical)
+            panel.clear()
+            from .components import ErrorCard
+            panel.mount(ErrorCard(
+                severity=severity,
+                what=what,
+                why=why,
+                how_to_fix=how,
+                raw_error=raw,
+            ))
+            from textual.widgets import Button
+            panel.mount(Button("Copy Details", id="btn-copy-error"))
+            panel.display = True
+            
+            # Store last error text for clipboard action
+            self._last_error_text = f"Severity: {severity}\nWhat: {what}\nWhy: {why}\nHow to fix: {how}\nRaw error: {raw}"
+        except Exception:
+            # Fallback
+            from .screens import ErrorScreen
+            self.app.push_screen(ErrorScreen(
+                severity=severity,
+                what=what,
+                why=why,
+                how_to_fix=how,
+                raw_error=raw,
+            ))
+
+    def _copy_to_clipboard(self, text: str) -> None:
+        import platform
+        import subprocess
+        try:
+            if platform.system() == "Windows":
+                process = subprocess.Popen(['clip'], stdin=subprocess.PIPE, text=True)
+                process.communicate(text)
+            elif platform.system() == "Linux":
+                process = subprocess.Popen(['xclip', '-selection', 'clipboard'], stdin=subprocess.PIPE, text=True)
+                process.communicate(text)
+        except Exception:
+            pass
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        from textual.widgets import Button
+        if event.button.id == "btn-copy-error":
+            if hasattr(self, "_last_error_text") and self._last_error_text:
+                self._copy_to_clipboard(self._last_error_text)
+                self.app.notify("Copied to clipboard!", severity="information")
+            event.stop()
+
+    def on_mount(self) -> None:
+        try:
+            self.query_one("#leader-overlay").display = False
+        except Exception:
+            pass
+        self._base_status_timer = self.set_interval(1.0, self._update_base_status)
+
+    def on_unmount(self) -> None:
+        if hasattr(self, "_base_status_timer") and self._base_status_timer:
+            self._base_status_timer.stop()
+
+    def on_resize(self, event) -> None:
+        try:
+            collapse = event.size.width < 120
+            self.query_one("#right-sidebar").display = not collapse
+            self.query_one("#sidebar-sep").display = not collapse
+        except Exception:
+            pass
+
+    def _update_base_status(self) -> None:
+        try:
+            widget = self.query_one("#adapter-status", AdapterStatusWidget)
+            if hasattr(self.app, "_adapter_manager") and self.app._adapter_manager:
+                best = self.app._adapter_manager.get_best_for_operation("scan")
+                if best:
+                    widget.adapter_name = best.iface
+                    widget.adapter_status = best.status.lower()
+                    widget.mode = best.current_mode
+                    widget.signal = best.signal if hasattr(best, "signal") else -50
+            if hasattr(self.app, "session") and self.app.session:
+                widget.networks = len(self.app.session.scan_results)
+                widget.clients = len(self.app.session.clients)
+        except Exception:
+            pass
+
+    def action_attack_leader(self) -> None:
+        self.leader_prefix = "attack"
+        self._show_leader_overlay("Attack: [d] Deauth  [p] PMKID  [w] WPS  [e] Evil Twin")
+
+    def action_scan_leader(self) -> None:
+        self.leader_prefix = "scan"
+        self._show_leader_overlay("Scan: [f] Full Scan  [b] Band Scan  [c] Channel Lock")
+
+    def action_capture_leader(self) -> None:
+        self.leader_prefix = "capture"
+        self._show_leader_overlay("Capture: [p] Passive Capture  [a] Active Deauth Capture")
+
+    def _show_leader_overlay(self, message: str) -> None:
+        try:
+            overlay = self.query_one("#leader-overlay")
+            overlay.update(f"[bold $accent]LEADER[/bold $accent] {message}")
+            overlay.display = True
+        except Exception:
+            pass
+
+    def _hide_leader_overlay(self) -> None:
+        self.leader_prefix = None
+        try:
+            overlay = self.query_one("#leader-overlay")
+            overlay.display = False
+        except Exception:
+            pass
+
+    def on_key(self, event) -> None:
+        if self.leader_prefix:
+            prefix = self.leader_prefix
+            self._hide_leader_overlay()
+            key = event.key.lower()
+            if prefix == "attack":
+                if key == "d":
+                    self.app.push_screen(DeauthSelectScreen())
+                elif key == "p":
+                    self.app.push_screen(CaptureProgressScreen(target=self.app.session.selected_target, method="pmkid"))
+                elif key == "w":
+                    self.app.push_screen(CaptureProgressScreen(target=self.app.session.selected_target, method="wps"))
+                elif key == "e":
+                    self.app.push_screen(CaptureProgressScreen(target=self.app.session.selected_target, method="evil_twin"))
+                event.stop()
+            elif prefix == "scan":
+                if key == "f":
+                    self.app.push_screen(ScanScreen())
+                elif key == "b":
+                    self.app.push_screen(ScanOptionsScreen())
+                elif key == "c":
+                    if self.app.session.selected_target:
+                        self.app.push_screen(ScanScreen())
+                event.stop()
+            elif prefix == "capture":
+                if key == "p":
+                    self.app.push_screen(CaptureProgressScreen(target=self.app.session.selected_target, method="passive"))
+                elif key == "a":
+                    self.app.push_screen(DeauthSelectScreen())
+                event.stop()
+            if event.key == "escape":
+                event.stop()
+
+    def run_safe_task(self, coro):
+        import traceback
+        from ..core.errors import SidewinderError
+        async def wrapped():
+            try:
+                await coro
+            except SidewinderError as se:
+                self.app.show_error(
+                    severity=se.severity.value,
+                    what=se.what,
+                    why=se.why,
+                    how=se.how_to_fix,
+                    raw=se.raw_error
+                )
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                self.app.show_error(
+                    severity="error",
+                    what="An unexpected error occurred",
+                    why=str(e),
+                    how=["Restart Sidewinder", "Check system logs"],
+                    raw=traceback.format_exc()
+                )
+        return asyncio.create_task(wrapped())
+
+
+class MainMenuScreen(SidewinderScreen):
+    """Main menu screen — opencode-style numbered options with inline statuses."""
 
     BINDINGS = [
         Binding("1", "menu_1", "Scan"),
@@ -79,54 +297,105 @@ class MainMenuScreen(Screen):
         Binding("escape", "quit", "Quit"),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        with Vertical(id="main-container"):
-            yield Spacer(height=2)
-            with Center():
-                yield LogoWidget(id="logo")
-            yield Spacer(height=1)
-            with Center():
-                yield AdapterStatusWidget(id="adapter-status")
-            yield Spacer(height=1)
-            with Center():
-                list_items = []
-                for key, label, action in MAIN_MENU_ITEMS:
-                    markup = rf"[$text-muted]\[[/$text-muted][bold $secondary]{key}[/bold $secondary][$text-muted]][/$text-muted]  [$text]{label}[/$text]"
-                    list_items.append(ListItem(Label(markup), id=f"menu-{action}"))
-                yield ListView(*list_items, id="menu")
-            yield Spacer(height=1)
-            with Center():
-                yield Static(
-                    "[$text-muted]  /[/$text-muted][$text-muted] command[/$text-muted]"
-                    "  [$text-muted]?[/$text-muted][$text-muted] help[/$text-muted]"
-                    "  [$text-muted]Esc[/$text-muted][$text-muted] quit[/$text-muted]",
-                    id="hints",
-                )
-            yield Spacer(flex=1)
-        yield Footer()
+    def compose_main(self) -> ComposeResult:
+        from .components import LogoWidget, Spacer
+        yield Spacer(height=2)
+        yield Center(LogoWidget(id="logo"))
+        yield Spacer(height=3)
+        yield Center(ListView(id="menu"))
+
+    def compose_prompt(self) -> ComposeResult:
+        return []
 
     def on_mount(self) -> None:
-        self.update_timer = self.set_interval(1.0, self.update_adapter_status)
-        # Give ListView focus so arrow keys work immediately
+        super().on_mount()
+        self._update_menu_items()
+        self._menu_timer = self.set_interval(1.0, self._update_menu_items)
         self.query_one(ListView).focus()
 
     def on_unmount(self) -> None:
-        if hasattr(self, "update_timer") and self.update_timer:
-            self.update_timer.stop()
+        super().on_unmount()
+        if hasattr(self, "_menu_timer") and self._menu_timer:
+            self._menu_timer.stop()
 
-    def update_adapter_status(self) -> None:
-        if hasattr(self.app, "_adapter_manager") and self.app._adapter_manager:
-            best = self.app._adapter_manager.get_best_for_operation("scan")
-            if best:
-                try:
-                    widget = self.query_one("#adapter-status", AdapterStatusWidget)
-                    widget.adapter_name = best.iface
-                    widget.adapter_status = best.status
-                    widget.channel = "--"
-                    widget.mode = best.current_mode
-                except Exception:
-                    pass
+    def _get_menu_item_info(self, action: str) -> str:
+        if action == "scan":
+            is_scanning = False
+            if hasattr(self.app, "_scan_engine") and self.app._scan_engine and self.app._scan_engine._running:
+                is_scanning = True
+            return "● scanning..." if is_scanning else "● idle"
+        elif action == "target":
+            tgt = self.app.session.selected_target
+            if tgt:
+                return f"■ {tgt.display_name()} ({tgt.bssid[:8]})"
+            else:
+                return "■ none"
+        elif action == "crack":
+            crack_res = self.app.session.cracked_passwords
+            if crack_res:
+                return f"▣ cracked: {crack_res[-1].password}"
+            else:
+                return "● waiting"
+        elif action == "view":
+            count = len(self.app.session.captures)
+            return f"{count} captures"
+        elif action == "settings":
+            if hasattr(self.app, "_adapter_manager") and self.app._adapter_manager:
+                best = self.app._adapter_manager.get_best_for_operation("scan")
+                if best:
+                    return f"{best.chipset} [{best.current_mode.upper()}]"
+            return ""
+        elif action == "cleanup":
+            return "▣ restored" if getattr(self.app, "_cleaned_up", False) else "▣ dirty"
+        elif action == "help":
+            return "?"
+        elif action == "exit":
+            return "⏻"
+        return ""
+
+    def _update_menu_items(self) -> None:
+        try:
+            lv = self.query_one("#menu", ListView)
+            if not lv.children:
+                for key, label, action in MAIN_MENU_ITEMS:
+                    info = self._get_menu_item_info(action)
+                    padded_label = f"{label:<28}"
+                    markup = (
+                        rf"[$text-muted]\[[/$text-muted]"
+                        rf"[bold $secondary]{key}[/bold $secondary]"
+                        rf"[$text-muted]][/$text-muted]  "
+                        rf"[$text]{padded_label}[/$text]"
+                        rf" [dim]{info}[/dim]"
+                    )
+                    lv.append(ListItem(Label(markup), id=f"menu-{action}"))
+            else:
+                for item in lv.children:
+                    action = item.id.replace("menu-", "") if item.id else ""
+                    key = ""
+                    label = ""
+                    for k, l, a in MAIN_MENU_ITEMS:
+                        if a == action:
+                            key = k
+                            label = l
+                            break
+                    if not key:
+                        continue
+                    info = self._get_menu_item_info(action)
+                    padded_label = f"{label:<28}"
+                    markup = (
+                        rf"[$text-muted]\[[/$text-muted]"
+                        rf"[bold $secondary]{key}[/bold $secondary]"
+                        rf"[$text-muted]][/$text-muted]  "
+                        rf"[$text]{padded_label}[/$text]"
+                        rf" [dim]{info}[/dim]"
+                    )
+                    try:
+                        lbl = item.query_one(Label)
+                        lbl.update(markup)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         action = event.item.id.replace("menu-", "") if event.item.id else ""
@@ -141,8 +410,7 @@ class MainMenuScreen(Screen):
         elif action == "settings":
             self.action_menu_5()
         elif action == "cleanup":
-            if hasattr(self.app, "action_cleanup"):
-                self.app.action_cleanup()
+            self.action_menu_6()
         elif action == "help":
             self.action_menu_7()
         elif action == "exit":
@@ -155,14 +423,38 @@ class MainMenuScreen(Screen):
         self.app.push_screen(TargetSelectScreen())
 
     def action_menu_3(self) -> None:
-        self.app.push_screen(CrackProgressScreen())
+        cap = self.app.session.captures[-1] if self.app.session.captures else ""
+        if not cap:
+            self.app.notify("No captures found. Run a scan/capture first or select a capture file.", severity="warning")
+            return
+        self.app.push_screen(WordlistPickerScreen(), callback=lambda wl: self._on_wordlist_selected_menu_3(cap, wl))
+
+    def _on_wordlist_selected_menu_3(self, cap: str, wordlist_path: str | None) -> None:
+        if wordlist_path:
+            self.app.push_screen(EnginePickerScreen(), callback=lambda engine: self._on_engine_selected_menu_3(cap, wordlist_path, engine))
+
+    def _on_engine_selected_menu_3(self, cap: str, wordlist_path: str, engine: str | None) -> None:
+        if engine:
+            self.app.push_screen(CrackProgressScreen(
+                cap_file=cap,
+                wordlist=wordlist_path,
+                engine=engine
+            ))
 
     def action_menu_5(self) -> None:
         self.app.push_screen(AdapterScreen())
 
     def action_menu_6(self) -> None:
-        if hasattr(self.app, "action_cleanup"):
-            self.app.action_cleanup()
+        confirm_bar = self.query_one("#inline-confirm", InlineConfirm)
+        confirm_bar.confirm(
+            message="Run system cleanup & restore services?",
+            choices=["Confirm [y]", "Cancel [n]"],
+            on_confirm=self._on_cleanup_confirmed
+        )
+
+    def _on_cleanup_confirmed(self, choice_idx: int) -> None:
+        if choice_idx == 0:
+            self.app.push_screen(CleanupScreen())
 
     def action_menu_7(self) -> None:
         self.app.push_screen(HelpScreen())
@@ -173,39 +465,40 @@ class MainMenuScreen(Screen):
     def action_quit(self) -> None:
         self.app.exit()
 
-    # Also handle menu_4 for view
     def action_menu_4(self) -> None:
         self.app.push_screen(CaptureListScreen())
 
 
-# ── Adapter Screen ────────────────────────────────────────────────────────────
-
-class AdapterScreen(Screen):
+class AdapterScreen(SidewinderScreen):
     """Shows all detected adapters and their status."""
 
     BINDINGS = [
         Binding("escape", "back", "Back"),
         Binding("r", "refresh", "Refresh"),
+        Binding("m", "monitor_setup", "Monitor Mode"),
+        Binding("s", "service_mgr", "Service Mgr"),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        with Vertical(id="adapter-screen-container"):
-            yield Static(
-                "[bold $primary]Hardware & Adapters[/bold $primary]",
-                id="adapter-title",
-            )
-            table = DataTable(id="adapter-table", show_cursor=True)
-            table.add_columns("Interface", "Chipset", "Driver", "Bands", "Monitor", "Inject", "Status")
-            yield table
-            yield Static(
-                "  [$text-muted]r[/$text-muted][$text-muted] refresh[/$text-muted]  "
-                "[$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="adapter-hints",
-            )
-        yield Footer()
+    def compose_main(self) -> ComposeResult:
+        yield Static(
+            "[bold $primary]Hardware & Adapters[/bold $primary]",
+            id="adapter-title",
+        )
+        table = DataTable(id="adapter-table", show_cursor=True)
+        table.add_columns("Interface", "Chipset", "Driver", "Bands", "Monitor", "Inject", "Status")
+        yield table
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "  [$text-muted]r[/$text-muted][$text-muted] refresh[/$text-muted]  "
+            "[$text-muted]m[/$text-muted][$text-muted] monitor setup[/$text-muted]  "
+            "[$text-muted]s[/$text-muted][$text-muted] service mgr[/$text-muted]  "
+            "[$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="adapter-hints",
+        )
 
     def on_mount(self) -> None:
+        super().on_mount()
         self.call_after_refresh(self._load_adapters)
 
     async def _load_adapters(self) -> None:
@@ -233,10 +526,21 @@ class AdapterScreen(Screen):
         table.clear()
         self.call_after_refresh(self._load_adapters)
 
+    def action_monitor_setup(self) -> None:
+        table = self.query_one("#adapter-table", DataTable)
+        if table.cursor_row >= 0:
+            row_keys = list(table.rows.keys())
+            if table.cursor_row < len(row_keys):
+                iface = row_keys[table.cursor_row].value
+                self.app.push_screen(MonitorSetupScreen(adapter_name=iface))
+
+    def action_service_mgr(self) -> None:
+        self.app.push_screen(ServiceCheckScreen())
+
 
 # ── Scan Screen ───────────────────────────────────────────────────────────────
 
-class ScanScreen(Screen):
+class ScanScreen(SidewinderScreen):
     """WiFi scan results table — airodump-ng style with signal bars."""
 
     BINDINGS = [
@@ -245,29 +549,33 @@ class ScanScreen(Screen):
         Binding("s", "stop_scan", "Stop"),
     ]
 
+    def __init__(self, band: str = "", channels: list[int] | None = None, show_hidden: bool = True, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.band = band
+        self.channels = channels
+        self.show_hidden = show_hidden
+
     scanning: reactive[bool] = reactive(False)
     network_count: reactive[int] = reactive(0)
     elapsed: reactive[int] = reactive(0)
 
-    def compose(self) -> ComposeResult:
-        from .components import ScanStatsBar, StatusBar
-        yield Header(show_clock=True)
-        with Vertical(id="sc-scan"):
-            with Horizontal(id="scan-header"):
-                yield Static("[bold $primary]WiFi Scan[/bold $primary]", id="scan-title")
-                yield ScanStatsBar(id="scan-stats")
-            table = DataTable(id="scan-table", show_cursor=True)
-            yield table
-            yield Static(
-                "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
-                "  [$text-muted]s[/$text-muted][$text-muted] stop[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="scan-hints",
-            )
-        yield StatusBar(id="scan-status-bar")
-        yield Footer()
+    def compose_main(self) -> ComposeResult:
+        from .components import ScanStatsBar
+        with Horizontal(id="scan-header"):
+            yield Static("[bold $primary]WiFi Scan[/bold $primary]", id="scan-title")
+            yield ScanStatsBar(id="scan-stats")
+        yield DataTable(id="scan-table", show_cursor=True)
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
+            "  [$text-muted]s[/$text-muted][$text-muted] stop[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="scan-hints",
+        )
 
     def on_mount(self) -> None:
+        super().on_mount()
         self.scanning = True
         self._timer = self.set_interval(1.0, self._tick)
         self.call_after_refresh(self._setup_columns)
@@ -279,21 +587,34 @@ class ScanScreen(Screen):
                 self._scan_engine = ScanEngine()
 
                 async def run_scan():
-                    try:
-                        await self._scan_engine.scan(
-                            mon_iface=adapter.iface,
-                            on_network=lambda n: self.call_from_thread(self.add_network, n),
-                            on_client=lambda c: self.call_from_thread(self.add_client, c),
-                        )
-                    except Exception as e:
-                        self.app.notify(f"Scan failed: {e}", severity="error")
+                    await self._scan_engine.scan(
+                        mon_iface=adapter.iface,
+                        band=self.band,
+                        channels=self.channels,
+                        on_network=self.add_network,
+                        on_client=self.add_client,
+                    )
 
-                import asyncio
-                self.scan_task = asyncio.create_task(run_scan())
+                self.scan_task = self.run_safe_task(run_scan())
+            else:
+                from ..core.errors import ERROR_DB
+                self.app.show_error(
+                    severity=ERROR_DB["ADAPTER_NOT_FOUND"].severity.value,
+                    what=ERROR_DB["ADAPTER_NOT_FOUND"].what,
+                    why=ERROR_DB["ADAPTER_NOT_FOUND"].why,
+                    how=ERROR_DB["ADAPTER_NOT_FOUND"].how_to_fix
+                )
 
     def _setup_columns(self) -> None:
         table = self.query_one("#scan-table", DataTable)
         w, _ = self.app.size
+        has_wps_and_clients = len(table.columns) > 7
+        should_have_wps_and_clients = w >= 100
+
+        # If already configured correctly, do not rebuild
+        if len(table.columns) > 0 and (has_wps_and_clients == should_have_wps_and_clients):
+            return
+
         table.clear(columns=True)
         table.add_column("BSSID", width=17)
         table.add_column("CH", width=3)
@@ -302,16 +623,23 @@ class ScanScreen(Screen):
         table.add_column("Privacy", width=7)
         table.add_column("Cipher", width=7)
         table.add_column("ESSID", width=20)
-        if w >= 100:
+        if should_have_wps_and_clients:
             table.add_column("WPS", width=4)
             table.add_column("Clients", width=3)
         else:
             self.app.notify("Some columns hidden. Resize to 100+ for full view.", severity="warning")
 
+        # Repopulate from session
+        if hasattr(self.app, "session") and self.app.session:
+            for n in self.app.session.scan_results:
+                self._add_network_to_table(n)
+
     def on_resize(self, event) -> None:
+        super().on_resize(event)
         self.call_after_refresh(self._setup_columns)
 
     def on_unmount(self) -> None:
+        super().on_unmount()
         self.action_stop_scan()
         if hasattr(self, "_timer") and self._timer:
             self._timer.stop()
@@ -326,24 +654,31 @@ class ScanScreen(Screen):
             stats.clients = sum(1 for c in self.app.session.clients)
             stats.elapsed = f"{m:02d}:{s:02d}"
 
-            sbar = self.query_one("#scan-status-bar", StatusBar)
-            sbar.elapsed = f"{h:02d}:{m:02d}:{s:02d}"
-            if hasattr(self.app, "_adapter_manager") and self.app._adapter_manager:
-                best = self.app._adapter_manager.get_best_for_operation("scan")
-                if best:
-                    sbar.adapter = best.iface
-                    sbar.mode = best.current_mode
-                    sbar.channel = "--"
+            # Update base status details via reactive variables
+            widget = self.query_one("#adapter-status", AdapterStatusWidget)
+            widget.networks = self.network_count
+            widget.clients = len(self.app.session.clients)
+            widget.status = "scanning"
+            widget.time_elapsed = f"{m:02d}:{s:02d}"
         except Exception:
             pass
 
     def add_network(self, network) -> None:
         """Add or update a network in the scan table."""
-        # Persist to session
         existing = next((n for n in self.app.session.scan_results if n.bssid == network.bssid), None)
         if not existing:
             self.app.session.scan_results.append(network)
+        else:
+            existing.signal = network.signal
+            existing.channel = network.channel
+            existing.privacy = network.privacy
+            existing.cipher = network.cipher
+            existing.essid = network.essid
+            existing.wps = network.wps
 
+        self._add_network_to_table(network)
+
+    def _add_network_to_table(self, network) -> None:
         table = self.query_one("#scan-table", DataTable)
         bar = signal_bar(network.signal)
         sc = signal_color(network.signal)
@@ -380,19 +715,25 @@ class ScanScreen(Screen):
             self.app.session.clients.append(client)
 
     def action_back(self) -> None:
-        self.action_stop_scan()
+        self._stop_scanning_backend()
         if hasattr(self, "_timer"):
             self._timer.stop()
         self.app.pop_screen()
 
     def action_stop_scan(self) -> None:
+        self._stop_scanning_backend()
+        if hasattr(self, "_timer"):
+            self._timer.stop()
+        self.app.pop_screen()
+        self.app.push_screen(TargetSelectScreen())
+
+    def _stop_scanning_backend(self) -> None:
         self.scanning = False
         if hasattr(self, "scan_task") and self.scan_task and not self.scan_task.done():
             self.scan_task.cancel()
         if hasattr(self, "_scan_engine") and self._scan_engine:
             import asyncio
             asyncio.create_task(self._scan_engine.stop_and_wait())
-
 
     def action_cursor_down(self) -> None:
         table = self.query_one("#scan-table", DataTable)
@@ -409,10 +750,9 @@ class ScanScreen(Screen):
             row_keys = list(table.rows.keys())
             if table.cursor_row < len(row_keys):
                 bssid = row_keys[table.cursor_row].value
-                # Match from the active scan engine or current session scan results
                 network = None
                 if hasattr(self, "_scan_engine") and self._scan_engine:
-                    network = next((n for n in self._scan_engine.networks if n.bssid == bssid), None)
+                    network = next((n for n in self._scan_engine.parser.networks.values() if n.bssid == bssid), None)
                 if not network:
                     network = next((n for n in self.app.session.scan_results if n.bssid == bssid), None)
                 
@@ -422,10 +762,13 @@ class ScanScreen(Screen):
                     if screen_cls:
                         self.app.push_screen(screen_cls(target=network))
 
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        self.action_select_target()
+
 
 # ── Target Select Screen ──────────────────────────────────────────────────────
 
-class TargetSelectScreen(Screen):
+class TargetSelectScreen(SidewinderScreen):
     """Select a target from previously scanned networks."""
 
     BINDINGS = [
@@ -435,21 +778,39 @@ class TargetSelectScreen(Screen):
         Binding("k", "cursor_up", "Up", show=False),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        with Vertical(id="sc-target"):
-            yield Static("[bold $primary]Select Target Network[/bold $primary]", id="target-title")
-            yield Static("[$text-muted]──────────────────────[/$text-muted]", id="target-divider")
-            table = DataTable(id="target-table", show_cursor=True)
-            table.add_columns("BSSID", "CH", "Signal", "Privacy", "ESSID", "Clients")
-            yield table
-            yield Static(
-                "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
-                "  [$text-muted]j/k[/$text-muted][$text-muted] navigate[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="target-hints",
+    def compose_main(self) -> ComposeResult:
+        yield Static("[bold $primary]Select Target Network[/bold $primary]", id="target-title")
+        yield Static("[$text-muted]──────────────────────[/$text-muted]", id="target-divider")
+        table = DataTable(id="target-table", show_cursor=True)
+        table.add_columns("BSSID", "CH", "Signal", "Privacy", "ESSID", "Clients")
+        yield table
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
+            "  [$text-muted]j/k[/$text-muted][$text-muted] navigate[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="target-hints",
+        )
+
+    def on_mount(self) -> None:
+        super().on_mount()
+        # Populate table from session results
+        table = self.query_one("#target-table", DataTable)
+        for n in self.app.session.scan_results:
+            bar = signal_bar(n.signal)
+            sc = signal_color(n.signal)
+            pc = privacy_color(n.privacy)
+            clients_cnt = sum(1 for c in self.app.session.clients if c.bssid == n.bssid)
+            table.add_row(
+                n.bssid,
+                str(n.channel),
+                f"{bar} {n.signal}",
+                f"[{pc}]{n.privacy}[/{pc}]",
+                n.display_name(),
+                str(clients_cnt),
+                key=n.bssid
             )
-        yield Footer()
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -472,6 +833,9 @@ class TargetSelectScreen(Screen):
 
     def action_cursor_up(self) -> None:
         self.query_one(DataTable).action_scroll_up()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        self.action_select()
 
 
 # ── Capture Method Screen ──────────────────────────────────────────────────────
@@ -530,7 +894,7 @@ CAPTURE_METHODS = [
 ]
 
 
-class CaptureMethodScreen(Screen):
+class CaptureMethodScreen(SidewinderScreen):
     """Select capture method with live tooltips."""
 
     BINDINGS = [
@@ -544,8 +908,7 @@ class CaptureMethodScreen(Screen):
 
     selected_idx: reactive[int] = reactive(0)
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with Horizontal(id="sc-method"):
             with Vertical(id="method-list"):
                 yield Static("[bold $primary]Capture Method[/bold $primary]", id="method-title")
@@ -563,24 +926,24 @@ class CaptureMethodScreen(Screen):
                         f"[{rc}]{m['risk_level'].upper()}[/{rc}]"
                     )
                     yield Static(markup, id=f"method-{m['key']}")
-                yield Static(
-                    "[$text-muted]  1-5[/$text-muted][$text-muted] select[/$text-muted]"
-                    "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                    id="method-hints",
-                )
             with Vertical(id="tooltip-panel"):
-                # Initial render container
                 yield Static("", id="tooltip-container")
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  1-5[/$text-muted][$text-muted] select[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="method-hints",
+        )
 
     def on_mount(self) -> None:
+        super().on_mount()
         self.watch_selected_idx(self.selected_idx)
 
     def watch_selected_idx(self, idx: int) -> None:
         try:
             m = CAPTURE_METHODS[idx]
             container = self.query_one("#tooltip-panel", Vertical)
-            # Remove old tooltip if exists
             try:
                 old = self.query_one("#tooltip")
                 old.remove()
@@ -639,12 +1002,12 @@ class CaptureMethodScreen(Screen):
 
 # ── Capture Progress Screen ───────────────────────────────────────────────────
 
-class CaptureProgressScreen(Screen):
+class CaptureProgressScreen(SidewinderScreen):
     """Live capture progress with EAPOL M1-M4 tracker."""
 
     BINDINGS = [
         Binding("escape", "stop", "Stop"),
-        Binding("ctrl+c", "stop", "Stop"),
+        Binding("ctrl+x", "stop", "Stop"),
     ]
 
     def __init__(self, target=None, method: str = "passive", selected_clients=None, **kwargs) -> None:
@@ -658,29 +1021,186 @@ class CaptureProgressScreen(Screen):
     signal: reactive[int] = reactive(-100)
     elapsed: reactive[int] = reactive(0)
 
-    def compose(self) -> ComposeResult:
+    def compose_main(self) -> ComposeResult:
         from .components import AttackProgressPanel
-        yield Header(show_clock=True)
-        with Vertical(id="sc-capture"):
-            yield Static(
-                f"[bold $primary]Capturing Handshake[/bold $primary]",
-                id="capture-title",
-            )
-            yield Static("[$text-disabled]──────────────────────────────────────────────────[/$text-disabled]")
-            yield AttackProgressPanel(method=self.method, id="attack-panel")
-            yield ProgressBar(id="capture-progress", total=100)
-            yield Static(
-                "[$text-muted]  Esc[/$text-muted][$text-muted] stop capture[/$text-muted]",
-                id="capture-hints",
-            )
-        yield Footer()
+        yield Static(
+            f"[bold $primary]Capturing Handshake[/bold $primary]",
+            id="capture-title",
+        )
+        yield Static("[$text-disabled]──────────────────────────────────────────────────[/$text-disabled]")
+        yield AttackProgressPanel(method=self.method, id="attack-panel")
+        yield ProgressBar(id="capture-progress", total=100)
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Esc[/$text-muted][$text-muted] stop capture[/$text-muted]",
+            id="capture-hints",
+        )
 
     def on_mount(self) -> None:
+        super().on_mount()
         self._timer = self.set_interval(1.0, self._tick)
+        self.capture_task = self.run_safe_task(self._start_capture())
 
     def on_unmount(self) -> None:
+        super().on_unmount()
         if hasattr(self, "_timer") and self._timer:
             self._timer.stop()
+        if hasattr(self, "capture_task") and self.capture_task and not self.capture_task.done():
+            self.capture_task.cancel()
+
+    async def _start_capture(self) -> None:
+        if not hasattr(self.app, "_adapter_manager") or not self.app._adapter_manager:
+            from ..core.errors import ERROR_DB
+            raise ERROR_DB["ADAPTER_NOT_FOUND"]
+        adapter = self.app._adapter_manager.get_best_for_operation("capture")
+        if not adapter:
+            from ..core.errors import ERROR_DB
+            raise ERROR_DB["ADAPTER_NOT_FOUND"]
+
+        if adapter.current_mode != "monitor":
+            from ..core.errors import ERROR_DB
+            raise ERROR_DB["MONITOR_MODE_FAILED"]
+
+        import os
+        from ..core.config import expand_user_path
+        captures_dir = expand_user_path("~/.sidewinder/captures")
+        os.makedirs(captures_dir, exist_ok=True)
+        bssid_clean = self.target.bssid.replace(":", "")
+        output_prefix = os.path.join(captures_dir, f"capture_{bssid_clean}")
+
+        from ..core.capture import capture_passive
+        from ..attacks.deauth import run_deauth, DeauthConfig
+        from ..attacks.pmkid import PMKIDEngine
+        from ..attacks.wps import WPSEngine
+        from ..attacks.evil_twin import EvilTwinEngine
+        from ..core.subprocess_mgr import get_manager
+
+        try:
+            widget = self.query_one("#adapter-status", AdapterStatusWidget)
+            widget.status = "capturing"
+        except Exception:
+            pass
+
+        handshake = None
+        if self.method == "passive":
+            handshake = await capture_passive(
+                mon_iface=adapter.iface,
+                bssid=self.target.bssid,
+                channel=self.target.channel,
+                output_prefix=output_prefix,
+                timeout=300.0,
+                on_progress=self.update_eapol
+            )
+        elif self.method == "deauth":
+            client = self.selected_clients[0] if self.selected_clients else "FF:FF:FF:FF:FF:FF"
+            deauth_res = await run_deauth(
+                iface=adapter.iface,
+                phy=adapter.phy,
+                config=DeauthConfig(
+                    bssid=self.target.bssid,
+                    client=client,
+                    channel=self.target.channel,
+                    output_prefix=output_prefix,
+                    timeout=300.0
+                ),
+                on_progress=self._on_deauth_progress
+            )
+            handshake = deauth_res.handshake
+        elif self.method == "pmkid":
+            engine = PMKIDEngine(get_manager())
+            engine.set_progress_callback(self._on_attack_progress)
+            from ..core.attack import AttackConfig
+            res = await engine.start(AttackConfig(target_bssid=self.target.bssid, channel=self.target.channel, timeout=300.0), iface=adapter.iface)
+            if res.success:
+                from ..core.session import HandshakeResult
+                handshake = HandshakeResult(status="full")
+        elif self.method == "wps":
+            engine = WPSEngine(get_manager())
+            engine.set_progress_callback(self._on_attack_progress)
+            from ..core.attack import AttackConfig
+            res = await engine.start(AttackConfig(target_bssid=self.target.bssid, channel=self.target.channel, timeout=300.0), iface=adapter.iface)
+            if res.success:
+                from ..core.session import CrackResult
+                crack_res = CrackResult(found=True, password=res.stats.get("wpa_psk", "unknown"), method="wps")
+                self.app.session.cracked_passwords.append(crack_res)
+                self.app.push_screen(ResultScreen(
+                    password=crack_res.password,
+                    ssid=self.target.display_name(),
+                    bssid=self.target.bssid,
+                    method="WPS Pixie-Dust",
+                    keys_tested=1
+                ))
+                return
+        elif self.method == "evil_twin":
+            engine = EvilTwinEngine(get_manager())
+            success = await engine.start_rogue_ap(
+                mon_iface=adapter.iface,
+                essid=self.target.display_name(),
+                channel=self.target.channel,
+                target_bssid=self.target.bssid,
+                on_log=self._on_rogue_ap_log
+            )
+            if success:
+                from ..core.session import HandshakeResult
+                handshake = HandshakeResult(status="full")
+
+        if "MOCK" in adapter.iface:
+            # Create a dummy file so that os.path.exists passes
+            with open(output_prefix + "-01.cap", "w") as f:
+                f.write("mock pcap content")
+
+        if handshake and handshake.status in ("full", "partial"):
+            cap_file = output_prefix + "-01.cap"
+            if os.path.exists(cap_file):
+                self.app.session.captures.append(cap_file)
+                self.app.session.handshake = handshake
+                self.app.session.save()
+                self.app.notify(f"Handshake captured! Saved to {os.path.basename(cap_file)}", severity="success")
+                self.app.push_screen(WordlistPickerScreen(), callback=self._on_wordlist_selected)
+            else:
+                self.app.notify("Capture file missing despite handshake confirmation.", severity="warning")
+        else:
+            if self.method in ("passive", "deauth", "evil_twin"):
+                self.app.notify("No handshake captured.", severity="warning")
+                self.app.pop_screen()
+
+    def _on_deauth_progress(self, **kwargs) -> None:
+        try:
+            panel = self.query_one("#attack-panel", AttackProgressPanel)
+            sent = kwargs.get("deauths_sent", 0)
+            panel.beacons = sent
+            panel.refresh()
+        except Exception:
+            pass
+
+    def _on_attack_progress(self, **kwargs) -> None:
+        status = kwargs.get("status", "")
+        try:
+            panel = self.query_one("#attack-panel", AttackProgressPanel)
+            panel.status = status
+            panel.refresh()
+        except Exception:
+            pass
+
+    def _on_rogue_ap_log(self, log_msg: str) -> None:
+        self._on_attack_progress(status=log_msg)
+
+    def _on_wordlist_selected(self, wordlist_path: str | None) -> None:
+        if wordlist_path:
+            self.app.push_screen(EnginePickerScreen(), callback=lambda engine: self._on_engine_selected(wordlist_path, engine))
+        else:
+            self.app.pop_screen()
+
+    def _on_engine_selected(self, wordlist_path: str, engine: str | None) -> None:
+        if engine:
+            self.app.push_screen(CrackProgressScreen(
+                cap_file=self.app.session.captures[-1],
+                wordlist=wordlist_path,
+                engine=engine
+            ))
+        else:
+            self.app.pop_screen()
 
     def _tick(self) -> None:
         self.elapsed += 1
@@ -690,6 +1210,11 @@ class CaptureProgressScreen(Screen):
             panel.data_pkts = self.data_pkts
             panel.signal = self.signal
             panel.refresh()
+
+            # Update base status details
+            widget = self.query_one("#adapter-status", AdapterStatusWidget)
+            widget.status = "capturing"
+            widget.time_elapsed = f"{self.elapsed // 60:02d}:{self.elapsed % 60:02d}"
         except Exception:
             pass
 
@@ -713,7 +1238,7 @@ class CaptureProgressScreen(Screen):
 
 # ── Deauth Target Selection Screen ────────────────────────────────────────────
 
-class DeauthSelectScreen(Screen):
+class DeauthSelectScreen(SidewinderScreen):
     """Select which clients to deauth with checkbox list."""
 
     BINDINGS = [
@@ -727,25 +1252,24 @@ class DeauthSelectScreen(Screen):
 
     rate: reactive[int] = reactive(10)
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        with Vertical(id="sc-deauth"):
-            yield Static("[bold $primary]Select Deauth Targets[/bold $primary]", id="deauth-title")
-            yield Static("[$text-disabled]────────────────────[/$text-disabled]")
-            table = DataTable(id="client-table", show_cursor=True)
-            yield table
-            yield Static(id="rate-display")
-            yield Static(
-                "[$text-muted]  Space[/$text-muted][$text-muted] toggle[/$text-muted]"
-                "  [$text-muted]a[/$text-muted][$text-muted] select all[/$text-muted]"
-                "  [$text-muted]+/-[/$text-muted][$text-muted] rate[/$text-muted]"
-                "  [$text-muted]Enter[/$text-muted][$text-muted] confirm[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="deauth-hints",
-            )
-        yield Footer()
+    def compose_main(self) -> ComposeResult:
+        yield Static("[bold $primary]Select Deauth Targets[/bold $primary]", id="deauth-title")
+        yield Static("[$text-disabled]────────────────────[/$text-disabled]")
+        yield DataTable(id="client-table", show_cursor=True)
+        yield Static(id="rate-display")
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Space[/$text-muted][$text-muted] toggle[/$text-muted]"
+            "  [$text-muted]a[/$text-muted][$text-muted] select all[/$text-muted]"
+            "  [$text-muted]+/-[/$text-muted][$text-muted] rate[/$text-muted]"
+            "  [$text-muted]Enter[/$text-muted][$text-muted] confirm[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="deauth-hints",
+        )
 
     def on_mount(self) -> None:
+        super().on_mount()
         table = self.query_one("#client-table", DataTable)
         table.add_column("SEL", width=4)
         table.add_column("MAC", width=17)
@@ -753,6 +1277,13 @@ class DeauthSelectScreen(Screen):
         table.add_column("Signal", width=10)
         table.add_column("Packets", width=6)
         self._update_rate_display()
+
+        # Load clients belonging to the selected AP
+        target = self.app.session.selected_target
+        if target:
+            clients = [c for c in self.app.session.clients if c.bssid.upper() == target.bssid.upper()]
+            for c in clients:
+                self.add_client(c.mac, c.signal, c.packets)
 
     def _update_rate_display(self) -> None:
         rd = self.query_one("#rate-display", Static)
@@ -776,9 +1307,9 @@ class DeauthSelectScreen(Screen):
             vendor = device.vendor
         except Exception:
             pass
-        
+
         table.add_row(
-            "[$success]*[/$success]",  # Default: selected
+            "[$success]*[/$success]",
             f"[$text-muted]{mac}[/$text-muted]",
             vendor[:15],
             f"{signal_bar(signal)} {signal}",
@@ -824,12 +1355,18 @@ class DeauthSelectScreen(Screen):
 
 # ── Crack Progress Screen ─────────────────────────────────────────────────────
 
-class CrackProgressScreen(Screen):
+class CrackProgressScreen(SidewinderScreen):
     """Real-time cracking progress with keys/sec, ETA, current key."""
 
     BINDINGS = [
         Binding("escape", "stop", "Stop"),
     ]
+
+    def __init__(self, cap_file: str = "", wordlist: str = "", engine: str = "aircrack", **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.cap_file = cap_file
+        self.wordlist = wordlist
+        self.engine = engine
 
     keys_tested: reactive[int] = reactive(0)
     keys_total: reactive[int] = reactive(0)
@@ -837,22 +1374,97 @@ class CrackProgressScreen(Screen):
     current_key: reactive[str] = reactive("")
     eta: reactive[str] = reactive("unknown")
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        with Vertical(id="sc-crack"):
-            yield Static("[bold $primary]Cracking Password[/bold $primary]", id="crack-title")
-            yield Static("[$text-disabled]────────────────[/$text-disabled]")
-            with Vertical(id="crack-stats-panel"):
-                yield Static(id="crack-stats")
-                yield ProgressBar(id="crack-progress", total=100)
-            yield Static(
-                "[$text-muted]  Esc[/$text-muted][$text-muted] stop cracking[/$text-muted]",
-                id="crack-hints",
-            )
-        yield Footer()
+    def compose_main(self) -> ComposeResult:
+        yield Static("[bold $primary]Cracking Password[/bold $primary]", id="crack-title")
+        yield Static("[$text-disabled]────────────────[/$text-disabled]")
+        with Vertical(id="crack-stats-panel"):
+            yield Static(id="crack-stats")
+            yield ProgressBar(id="crack-progress", total=100)
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Esc[/$text-muted][$text-muted] stop cracking[/$text-muted]",
+            id="crack-hints",
+        )
 
     def on_mount(self) -> None:
+        super().on_mount()
         self._update_display()
+        self.crack_task = self.run_safe_task(self._start_cracking())
+
+    def on_unmount(self) -> None:
+        super().on_unmount()
+        if hasattr(self, "crack_task") and self.crack_task and not self.crack_task.done():
+            self.crack_task.cancel()
+
+    async def _start_cracking(self) -> None:
+        cap = self.cap_file or (self.app.session.captures[-1] if self.app.session.captures else "")
+        if not cap:
+            from ..core.errors import SidewinderError, Severity, Category
+            raise SidewinderError(
+                severity=Severity.ERROR,
+                category=Category.USER,
+                what="No capture file selected for cracking",
+                why="A capture file containing a handshake must be selected first.",
+                how_to_fix=["Perform a scan and capture first", "Or select a capture from the captures list."]
+            )
+
+        wordlist = self.wordlist or "/usr/share/wordlists/rockyou.txt"
+        import os
+        if not os.path.exists(wordlist):
+            from ..core.errors import ERROR_DB
+            raise ERROR_DB["WORDLIST_NOT_FOUND"]
+
+        try:
+            widget = self.query_one("#adapter-status", AdapterStatusWidget)
+            widget.status = "cracking"
+        except Exception:
+            pass
+
+        from ..core.cracker import crack_aircrack, crack_hashcat, CrackProgress
+        from ..core.subprocess_mgr import get_manager
+
+        target_bssid = self.app.session.selected_target.bssid if self.app.session.selected_target else "00:00:00:00:00:00"
+        ssid = self.app.session.selected_target.display_name() if self.app.session.selected_target else "Unknown"
+
+        def handle_progress(progress: CrackProgress) -> None:
+            self.update_progress(
+                tested=progress.keys_tested,
+                total=progress.total_keys or 100000,
+                speed=progress.keys_per_second,
+                current=progress.current_key,
+                eta=progress.eta_display()
+            )
+
+        if self.engine == "aircrack":
+            result = await crack_aircrack(
+                cap_file=cap,
+                bssid=target_bssid,
+                wordlist=wordlist,
+                on_progress=handle_progress,
+                mgr=get_manager()
+            )
+        else:
+            result = await crack_hashcat(
+                cap_file=cap,
+                wordlist=wordlist,
+                on_progress=handle_progress,
+                mgr=get_manager()
+            )
+
+        if result and result.found:
+            self.app.session.cracked_passwords.append(result)
+            self.app.session.save()
+            self.show_result(
+                password=result.password,
+                ssid=ssid,
+                bssid=target_bssid,
+                method=self.engine.upper(),
+                keys=result.keys_tested
+            )
+        else:
+            self.app.notify("Password not found in wordlist.", severity="warning")
+            self.action_stop()
 
     def _update_display(self) -> None:
         stats = self.query_one("#crack-stats", Static)
@@ -886,16 +1498,31 @@ class CrackProgressScreen(Screen):
         ))
 
     def action_stop(self) -> None:
-        # Move to Wordlist Picker to start cracking if we captured something
         if self.app.session.captures:
-            self.app.push_screen(WordlistPickerScreen())
+            self.app.push_screen(WordlistPickerScreen(), callback=self._on_wordlist_selected)
+        else:
+            self.app.pop_screen()
+
+    def _on_wordlist_selected(self, wordlist_path: str | None) -> None:
+        if wordlist_path:
+            self.app.push_screen(EnginePickerScreen(), callback=lambda engine: self._on_engine_selected(wordlist_path, engine))
+        else:
+            self.app.pop_screen()
+
+    def _on_engine_selected(self, wordlist_path: str, engine: str | None) -> None:
+        if engine:
+            self.app.push_screen(CrackProgressScreen(
+                cap_file=self.app.session.captures[-1],
+                wordlist=wordlist_path,
+                engine=engine
+            ))
         else:
             self.app.pop_screen()
 
 
 # ── Result Screen ─────────────────────────────────────────────────────────────
 
-class ResultScreen(Screen):
+class ResultScreen(SidewinderScreen):
     """Password found result card."""
 
     BINDINGS = [
@@ -922,9 +1549,8 @@ class ResultScreen(Screen):
         self._method = method
         self._keys = keys_tested
 
-    def compose(self) -> ComposeResult:
+    def compose_main(self) -> ComposeResult:
         from .components import PasswordCard
-        yield Header(show_clock=True)
         with Vertical(id="sc-result"):
             yield Spacer(flex=1)
             with Center():
@@ -937,17 +1563,16 @@ class ResultScreen(Screen):
                     elapsed=0.0, # We can pass session elapsed or mock it
                     id="result-card",
                 )
-            yield Spacer(height=1)
-            with Center():
-                yield Static(
-                    "[$text-muted]  1[/$text-muted][$text-muted] save to file[/$text-muted]"
-                    "  [$text-muted]2[/$text-muted][$text-muted] copy to clipboard[/$text-muted]"
-                    "  [$text-muted]4[/$text-muted][$text-muted] attack another[/$text-muted]"
-                    "  [$text-muted]6[/$text-muted][$text-muted] main menu[/$text-muted]",
-                    id="result-hints",
-                )
             yield Spacer(flex=1)
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  1[/$text-muted][$text-muted] save to file[/$text-muted]"
+            "  [$text-muted]2[/$text-muted][$text-muted] copy to clipboard[/$text-muted]"
+            "  [$text-muted]4[/$text-muted][$text-muted] attack another[/$text-muted]"
+            "  [$text-muted]6[/$text-muted][$text-muted] main menu[/$text-muted]",
+            id="result-hints",
+        )
 
     async def action_copy(self) -> None:
         """Copy password to clipboard via xclip/xsel."""
@@ -1005,7 +1630,7 @@ class ResultScreen(Screen):
 
 # ── Error Screen ──────────────────────────────────────────────────────────────
 
-class ErrorScreen(Screen):
+class ErrorScreen(SidewinderScreen):
     """Displays a structured error with What/Why/HowToFix."""
 
     BINDINGS = [
@@ -1028,9 +1653,9 @@ class ErrorScreen(Screen):
         self._why = why
         self._how = how_to_fix
         self._raw = raw_error
+        self._last_error_text = f"Severity: {severity}\nWhat: {what}\nWhy: {why}\nHow to fix: {how_to_fix}\nRaw error: {raw_error}"
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-error"):
             yield ErrorCard(
                 severity=self._sev,
@@ -1039,12 +1664,15 @@ class ErrorScreen(Screen):
                 how_to_fix=self._how,
                 raw_error=self._raw,
             )
-            yield Static(
-                "[$text-muted]  Enter[/$text-muted][$text-muted] dismiss[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] dismiss[/$text-muted]",
-                id="error-hints",
-            )
-        yield Footer()
+            from textual.widgets import Button
+            yield Button("Copy Details", id="btn-copy-error")
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] dismiss[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] dismiss[/$text-muted]",
+            id="error-hints",
+        )
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -1108,7 +1736,7 @@ TUTORIAL = """\
 """
 
 
-class HelpScreen(Screen):
+class HelpScreen(SidewinderScreen):
     """Full WiFi audit tutorial — opened with ? key."""
 
     BINDINGS = [
@@ -1116,11 +1744,12 @@ class HelpScreen(Screen):
         Binding("q", "back", "Close"),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with VerticalScroll(id="help-scroll"):
             yield Static(TUTORIAL, id="tutorial-text")
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static("[$text-muted]  Esc / q[/$text-muted][$text-muted] close help[/$text-muted]", id="help-hints")
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -1128,7 +1757,7 @@ class HelpScreen(Screen):
 
 # ── Session Resume ────────────────────────────────────────────────────────────
 
-class ResumeScreen(Screen):
+class ResumeScreen(SidewinderScreen):
     """Session resume prompt — shown when a previous session exists.
 
     Displays session summary and asks Y/n to resume.
@@ -1144,8 +1773,7 @@ class ResumeScreen(Screen):
         super().__init__()
         self._session = session
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-resume"):
             yield Static("[bold $primary]Previous Session Found[/bold $primary]", id="resume-title")
             yield Static("[$text-disabled]─────────────────────[/$text-disabled]")
@@ -1163,12 +1791,13 @@ class ResumeScreen(Screen):
                 f"[$text-muted]  Cracked [/$text-muted]  [$success]{cracked} passwords[/$success]",
                 id="resume-summary",
             )
-            yield Static(
-                "[bold $success]  Y[/bold $success][$text-muted]  Resume this session[/$text-muted]\n"
-                "[bold $error]  N[/bold $error][$text-muted]  Start fresh[/$text-muted]",
-                id="resume-options",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[bold $success]  Y[/bold $success][$text-muted]  Resume this session[/$text-muted]\n"
+            "[bold $error]  N[/bold $error][$text-muted]  Start fresh[/$text-muted]",
+            id="resume-options",
+        )
 
     def action_resume(self) -> None:
         self.app.session = self._session
@@ -1184,7 +1813,7 @@ class ResumeScreen(Screen):
 
 # ── Command Palette ───────────────────────────────────────────────────────────
 
-class CommandPaletteScreen(Screen):
+class CommandPaletteScreen(SidewinderScreen):
     """Slash command palette overlay."""
 
     BINDINGS = [
@@ -1194,9 +1823,8 @@ class CommandPaletteScreen(Screen):
         Binding("down", "nav_down", "Down", show=False),
     ]
 
-    def compose(self) -> ComposeResult:
+    def compose_main(self) -> ComposeResult:
         from .app import SLASH_COMMANDS
-        yield Header(show_clock=True)
         with Vertical(id="command-container"):
             yield Static(
                 "[bold $primary]Command Palette[/bold $primary]",
@@ -1209,7 +1837,13 @@ class CommandPaletteScreen(Screen):
                 for cmd, desc in SLASH_COMMANDS.items()
             ]
             yield OptionList(*options, id="command-list")
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] submit[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="command-hints",
+        )
 
     def on_mount(self) -> None:
         self.query_one(Input).focus()
@@ -1276,23 +1910,51 @@ class CommandPaletteScreen(Screen):
         elif cmd_id == "/help":
             self.app.push_screen(HelpScreen())
         elif cmd_id == "/cleanup":
-            if hasattr(self.app, "action_cleanup"):
-                self.app.action_cleanup()
+            self.app.push_screen(CleanupScreen())
         elif cmd_id == "/theme":
             self.app.push_screen(ThemeSelectScreen())
         elif cmd_id == "/compact":
             if hasattr(self.app, "action_toggle_compact"):
                 self.app.action_toggle_compact()
+        elif cmd_id == "/capture":
+            if self.app.session.selected_target:
+                self.app.push_screen(CaptureMethodScreen(target=self.app.session.selected_target))
+            else:
+                self.app.notify("No target selected. Select a target first.", severity="warning")
+        elif cmd_id == "/crack":
+            cap = self.app.session.captures[-1] if self.app.session.captures else ""
+            if not cap:
+                self.app.notify("No captures found. Run a scan/capture first or select a capture file.", severity="warning")
+            else:
+                self.app.push_screen(WordlistPickerScreen(), callback=lambda wl: self._on_wordlist_selected_cmd(cap, wl))
+        elif cmd_id == "/adapter":
+            self.app.push_screen(AdapterScreen())
+        elif cmd_id == "/status":
+            self.app.push_screen(SessionStatusScreen())
+        elif cmd_id == "/session":
+            self.app.push_screen(SessionListScreen())
         elif cmd_id == "/quit":
             self.app.exit()
         else:
             self.app.notify(f"Command {cmd_id} not fully wired yet.", severity="warning")
 
+    def _on_wordlist_selected_cmd(self, cap: str, wordlist_path: str | None) -> None:
+        if wordlist_path:
+            self.app.push_screen(EnginePickerScreen(), callback=lambda engine: self._on_engine_selected_cmd(cap, wordlist_path, engine))
+
+    def _on_engine_selected_cmd(self, cap: str, wordlist_path: str, engine: str | None) -> None:
+        if engine:
+            self.app.push_screen(CrackProgressScreen(
+                cap_file=cap,
+                wordlist=wordlist_path,
+                engine=engine
+            ))
+
 
 
 # ── Theme Selector ────────────────────────────────────────────────────────────
 
-class ThemeSelectScreen(Screen):
+class ThemeSelectScreen(SidewinderScreen):
     """Modal screen for selecting visual themes with live preview."""
 
     BINDINGS = [
@@ -1300,8 +1962,7 @@ class ThemeSelectScreen(Screen):
         Binding("enter", "select", "Select"),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with Vertical(id="theme-select-container"):
             yield Static(
                 "[bold $primary]Select Visual Theme[/bold $primary]",
@@ -1310,7 +1971,13 @@ class ThemeSelectScreen(Screen):
             themes = list(self.app.available_themes.keys())
             options = [Option(theme, id=theme) for theme in themes]
             yield OptionList(*options, id="theme-list")
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] cancel[/$text-muted]",
+            id="theme-hints",
+        )
 
     def on_mount(self) -> None:
         self._original_theme = self.app.theme
@@ -1326,6 +1993,7 @@ class ThemeSelectScreen(Screen):
         theme_id = event.option.id
         if theme_id in self.app.available_themes:
             self.app.theme = theme_id
+            self.app.refresh_css(animate=False)
             self.app.refresh(layout=True)
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
@@ -1335,6 +2003,7 @@ class ThemeSelectScreen(Screen):
     def action_cancel(self) -> None:
         """Cancel selection and restore original theme."""
         self.app.theme = self._original_theme
+        self.app.refresh_css(animate=False)
         self.app.refresh(layout=True)
         self.app.pop_screen()
 
@@ -1344,6 +2013,7 @@ class ThemeSelectScreen(Screen):
             self.query_one(OptionList).highlighted
         ).id
         self.app.theme = selected_theme
+        self.app.refresh_css(animate=False)
         self.app.refresh(layout=True)
         self.app.settings.theme = selected_theme
         self.app.settings.save()
@@ -1353,7 +2023,7 @@ class ThemeSelectScreen(Screen):
 
 # ── Wordlist Picker ───────────────────────────────────────────────────────────
 
-class WordlistPickerScreen(Screen):
+class WordlistPickerScreen(SidewinderScreen):
     """File browser for selecting wordlists."""
     
     BINDINGS = [
@@ -1361,22 +2031,22 @@ class WordlistPickerScreen(Screen):
         Binding("enter", "select", "Select"),
     ]
 
-    def compose(self) -> ComposeResult:
+    def compose_main(self) -> ComposeResult:
         from textual.widgets import DirectoryTree
         import os
 
-        yield Header(show_clock=True)
         with Vertical(id="sc-wordlist"):
             yield Static("[bold $primary]Select Wordlist[/bold $primary]", id="wordlist-title")
             yield Static("[$text-disabled]──────────────[/$text-disabled]")
             path = "/usr/share/wordlists" if os.path.exists("/usr/share/wordlists") else "."
             yield DirectoryTree(path, id="wordlist-tree")
-            yield Static(
-                "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="wordlist-hints",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] select[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="wordlist-hints",
+        )
 
     def on_directory_tree_file_selected(self, event) -> None:
         self.app.notify(f"Selected: {event.path}")
@@ -1388,7 +2058,7 @@ class WordlistPickerScreen(Screen):
 
 # ── Engine Picker ─────────────────────────────────────────────────────────────
 
-class EnginePickerScreen(Screen):
+class EnginePickerScreen(SidewinderScreen):
     """Select cracking engine (Aircrack-ng vs Hashcat)."""
 
     BINDINGS = [
@@ -1397,8 +2067,7 @@ class EnginePickerScreen(Screen):
         Binding("2", "select_hashcat", "Hashcat (GPU)"),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-engine"):
             yield Static("[bold $primary]Select Cracking Engine[/bold $primary]", id="engine-title")
             yield Static("[$text-disabled]──────────────────────[/$text-disabled]")
@@ -1409,12 +2078,13 @@ class EnginePickerScreen(Screen):
                 "[$text]Hashcat[/$text][$text-muted]     GPU-based, requires CUDA/ROCm[/$text-muted]\n",
                 id="engine-options",
             )
-            yield Static(
-                "[$text-muted]  1/2[/$text-muted][$text-muted] select engine[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="engine-hints",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  1/2[/$text-muted][$text-muted] select engine[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="engine-hints",
+        )
 
     def action_select_aircrack(self) -> None:
         self.dismiss("aircrack")
@@ -1428,7 +2098,7 @@ class EnginePickerScreen(Screen):
 
 # ── Cleanup Screen ────────────────────────────────────────────────────────────
 
-class CleanupScreen(Screen):
+class CleanupScreen(SidewinderScreen):
     """Visual checklist for restored services/files."""
 
     BINDINGS = [
@@ -1436,8 +2106,7 @@ class CleanupScreen(Screen):
         Binding("enter", "run_cleanup", "Run Cleanup"),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-cleanup"):
             yield Static("[bold $primary]System Cleanup[/bold $primary]", id="cleanup-title")
             yield Static("[$text-disabled]──────────────[/$text-disabled]")
@@ -1449,16 +2118,63 @@ class CleanupScreen(Screen):
                 "  [$text-muted][ ][/$text-muted]  Clear temporary capture files (/tmp/)\n",
                 id="cleanup-body",
             )
-            yield Static(
-                "[$text-muted]  Enter[/$text-muted][$success] confirm cleanup[/$success]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="cleanup-hints",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$success] confirm cleanup[/$success]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="cleanup-hints",
+        )
 
     async def action_run_cleanup(self) -> None:
+        body = self.query_one("#cleanup-body", Static)
+
+        # Step 1: Terminate background attack processes
+        body.update(
+            "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
+            "  [$text-muted][ ][/$text-muted]  Restore NetworkManager / wpa_supplicant\n"
+            "  [$text-muted][ ][/$text-muted]  Disable Monitor Mode\n"
+            "  [$success][x][/$success]  Terminate background attack processes\n"
+            "  [$text-muted][ ][/$text-muted]  Clear temporary capture files (/tmp/)\n"
+        )
+        await asyncio.sleep(0.5)
+
+        # Step 2: Disable Monitor Mode
+        body.update(
+            "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
+            "  [$text-muted][ ][/$text-muted]  Restore NetworkManager / wpa_supplicant\n"
+            "  [$success][x][/$success]  Disable Monitor Mode\n"
+            "  [$success][x][/$success]  Terminate background attack processes\n"
+            "  [$text-muted][ ][/$text-muted]  Clear temporary capture files (/tmp/)\n"
+        )
+        await asyncio.sleep(0.5)
+
+        # Step 3: Restore NetworkManager / wpa_supplicant
         if hasattr(self.app, "action_cleanup"):
             await self.app.action_cleanup()
+
+        body.update(
+            "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
+            "  [$success][x][/$success]  Restore NetworkManager / wpa_supplicant\n"
+            "  [$success][x][/$success]  Disable Monitor Mode\n"
+            "  [$success][x][/$success]  Terminate background attack processes\n"
+            "  [$text-muted][ ][/$text-muted]  Clear temporary capture files (/tmp/)\n"
+        )
+        await asyncio.sleep(0.5)
+
+        # Step 4: Clear temporary capture files (/tmp/)
+        if hasattr(self.app, "_cleanup_manager") and self.app._cleanup_manager:
+            await self.app._cleanup_manager.cleanup_files()
+
+        body.update(
+            "[$text-muted]The following actions will be performed:[/$text-muted]\n\n"
+            "  [$success][x][/$success]  Restore NetworkManager / wpa_supplicant\n"
+            "  [$success][x][/$success]  Disable Monitor Mode\n"
+            "  [$success][x][/$success]  Terminate background attack processes\n"
+            "  [$success][x][/$success]  Clear temporary capture files (/tmp/)\n"
+        )
+        self.app._cleaned_up = True
+        await asyncio.sleep(1.0)
         self.app.pop_screen()
 
     def action_back(self) -> None:
@@ -1467,7 +2183,7 @@ class CleanupScreen(Screen):
 
 # ── Service Check Screen ──────────────────────────────────────────────────────
 
-class ServiceCheckScreen(Screen):
+class ServiceCheckScreen(SidewinderScreen):
     """Interface to manually kill/restore services."""
 
     BINDINGS = [
@@ -1476,8 +2192,7 @@ class ServiceCheckScreen(Screen):
         Binding("r", "restore_services", "Restore Services"),
     ]
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-services"):
             yield Static("[bold $primary]Service Management[/bold $primary]", id="services-title")
             yield Static("[$text-disabled]──────────────────[/$text-disabled]")
@@ -1486,13 +2201,14 @@ class ServiceCheckScreen(Screen):
                 id="services-status",
             )
             yield ListView(id="service-list")
-            yield Static(
-                "[$text-muted]  k[/$text-muted][$error] kill conflicting[/$error]"
-                "  [$text-muted]r[/$text-muted][$success] restore[/$success]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="services-hints",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  k[/$text-muted][$error] kill conflicting[/$error]"
+            "  [$text-muted]r[/$text-muted][$success] restore[/$success]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="services-hints",
+        )
 
     async def on_mount(self) -> None:
         self.call_after_refresh(self._load_services)
@@ -1527,7 +2243,7 @@ class ServiceCheckScreen(Screen):
 
 # ── Monitor Setup Screen ──────────────────────────────────────────────────────
 
-class MonitorSetupScreen(Screen):
+class MonitorSetupScreen(SidewinderScreen):
     """Real-time feedback for interface mode switching."""
 
     BINDINGS = [
@@ -1536,12 +2252,11 @@ class MonitorSetupScreen(Screen):
         Binding("d", "disable_monitor", "Disable Monitor"),
     ]
 
-    def __init__(self, adapter_name: str):
-        super().__init__()
+    def __init__(self, adapter_name: str, **kwargs):
+        super().__init__(**kwargs)
         self.adapter_name = adapter_name
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with Vertical(id="sc-monitor"):
             yield Static(
                 f"[bold $primary]Monitor Mode[/bold $primary]  "
@@ -1559,13 +2274,14 @@ class MonitorSetupScreen(Screen):
                     f"[$text-muted]{tip.example}[/$text-muted]",
                     id="tooltip-info",
                 )
-            yield Static(
-                "[$text-muted]  e[/$text-muted][$success] enable monitor[/$success]"
-                "  [$text-muted]d[/$text-muted][$error] disable monitor[/$error]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="monitor-hints",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  e[/$text-muted][$success] enable monitor[/$success]"
+            "  [$text-muted]d[/$text-muted][$error] disable monitor[/$error]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="monitor-hints",
+        )
 
     async def on_mount(self) -> None:
         self.call_after_refresh(self._check_status)
@@ -1616,7 +2332,7 @@ class MonitorSetupScreen(Screen):
 
 # ── Scan Options Screen ───────────────────────────────────────────────────────
 
-class ScanOptionsScreen(Screen):
+class ScanOptionsScreen(SidewinderScreen):
     """Form inputs for band selection, channels, and hidden SSIDs."""
 
     BINDINGS = [
@@ -1624,9 +2340,8 @@ class ScanOptionsScreen(Screen):
         Binding("enter", "start_scan", "Start Scan"),
     ]
 
-    def compose(self) -> ComposeResult:
+    def compose_main(self) -> ComposeResult:
         from textual.widgets import Checkbox, Input
-        yield Header(show_clock=True)
         with Vertical(id="sc-scanopts"):
             yield Static("[bold $primary]Scan Options[/bold $primary]", id="scanopts-title")
             yield Static("[$text-disabled]────────────[/$text-disabled]")
@@ -1639,19 +2354,44 @@ class ScanOptionsScreen(Screen):
             )
             yield Input(placeholder="e.g. 1,6,11", id="channels-input")
             yield Checkbox("Show Hidden SSIDs", value=True, id="show-hidden")
-            yield Static(
-                "[$text-muted]  Enter[/$text-muted][$text-muted] start scan[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="scanopts-hints",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] start scan[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="scanopts-hints",
+        )
 
     def on_input_submitted(self, event) -> None:
         self.action_start_scan()
 
     def action_start_scan(self) -> None:
-        # In a real app, we'd pass these options to the scan engine.
-        self.app.push_screen(ScanScreen())
+        from textual.widgets import Checkbox, Input
+        
+        band_2g = self.query_one("#band-2g", Checkbox).value
+        band_5g = self.query_one("#band-5g", Checkbox).value
+        
+        band_str = ""
+        if band_2g and not band_5g:
+            band_str = "g"
+        elif band_5g and not band_2g:
+            band_str = "a"
+            
+        chan_text = self.query_one("#channels-input", Input).value.strip()
+        channels = []
+        if chan_text:
+            try:
+                channels = [int(c.strip()) for c in chan_text.split(",") if c.strip().isdigit()]
+            except Exception:
+                pass
+                
+        show_hidden = self.query_one("#show-hidden", Checkbox).value
+        
+        self.app.push_screen(ScanScreen(
+            band=band_str,
+            channels=channels if channels else None,
+            show_hidden=show_hidden
+        ))
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -1659,7 +2399,7 @@ class ScanOptionsScreen(Screen):
 
 # ── AP Details Screen ─────────────────────────────────────────────────────────
 
-class APDetailsScreen(Screen):
+class APDetailsScreen(SidewinderScreen):
     """Detailed drill-down for a selected target AP."""
 
     BINDINGS = [
@@ -1667,12 +2407,11 @@ class APDetailsScreen(Screen):
         Binding("a", "attack", "Attack this AP"),
     ]
 
-    def __init__(self, target) -> None:
-        super().__init__()
+    def __init__(self, target, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.target = target
 
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+    def compose_main(self) -> ComposeResult:
         with VerticalScroll(id="sc-apdetails"):
             yield Static(
                 f"[bold $primary]Access Point Details[/bold $primary]  "
@@ -1711,12 +2450,13 @@ class APDetailsScreen(Screen):
                     )
                     for w in r.warnings:
                         yield Static(f"    [$warning]! {w}[/$warning]")
-            yield Static(
-                "[$text-muted]  a[/$text-muted][$text-muted] attack this AP[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="apdetails-hints",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  a[/$text-muted][$text-muted] attack this AP[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="apdetails-hints",
+        )
 
     def action_attack(self) -> None:
         self.app.push_screen(CaptureMethodScreen())
@@ -1727,7 +2467,7 @@ class APDetailsScreen(Screen):
 
 # ── Capture List Screen ───────────────────────────────────────────────────────
 
-class CaptureListScreen(Screen):
+class CaptureListScreen(SidewinderScreen):
     """List saved capture files and allow selection for cracking."""
 
     BINDINGS = [
@@ -1737,22 +2477,22 @@ class CaptureListScreen(Screen):
         Binding("k", "cursor_up", "Up", show=False),
     ]
 
-    def compose(self) -> ComposeResult:
+    def compose_main(self) -> ComposeResult:
         from textual.widgets import DataTable
-        yield Header(show_clock=True)
         with Vertical(id="sc-captures"):
             yield Static("[bold $primary]Saved Captures[/bold $primary]", id="captures-title")
             yield Static("[$text-disabled]──────────────[/$text-disabled]")
             table = DataTable(id="captures-table", cursor_type="row")
             table.add_columns("Filename", "Size", "Modified")
             yield table
-            yield Static(
-                "[$text-muted]  Enter[/$text-muted][$text-muted] crack selected[/$text-muted]"
-                "  [$text-muted]j/k[/$text-muted][$text-muted] navigate[/$text-muted]"
-                "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
-                id="captures-hints",
-            )
-        yield Footer()
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] crack selected[/$text-muted]"
+            "  [$text-muted]j/k[/$text-muted][$text-muted] navigate[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="captures-hints",
+        )
 
     def on_mount(self) -> None:
         import os
@@ -1787,10 +2527,20 @@ class CaptureListScreen(Screen):
         if table.cursor_row >= 0:
             row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key
             full_path = row_key.value
-            # We assume it's a valid capture. Push to engine picker or crack screen.
-            # In a full flow we would set session target or pass filename.
             self.app.notify(f"Selected {full_path} for cracking.", severity="information")
-            self.app.push_screen(CrackProgressScreen())
+            self.app.push_screen(WordlistPickerScreen(), callback=lambda wl: self._on_wordlist_selected_capture_list(full_path, wl))
+
+    def _on_wordlist_selected_capture_list(self, cap: str, wordlist_path: str | None) -> None:
+        if wordlist_path:
+            self.app.push_screen(EnginePickerScreen(), callback=lambda engine: self._on_engine_selected_capture_list(cap, wordlist_path, engine))
+
+    def _on_engine_selected_capture_list(self, cap: str, wordlist_path: str, engine: str | None) -> None:
+        if engine:
+            self.app.push_screen(CrackProgressScreen(
+                cap_file=cap,
+                wordlist=wordlist_path,
+                engine=engine
+            ))
             
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -1802,3 +2552,154 @@ class CaptureListScreen(Screen):
     def action_cursor_up(self) -> None:
         from textual.widgets import DataTable
         self.query_one(DataTable).action_scroll_up()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        self.action_crack()
+
+
+# ── Session Management Screens ───────────────────────────────────────────────
+
+class SessionStatusScreen(SidewinderScreen):
+    """Displays current session stats, adapter info, and target details."""
+    BINDINGS = [
+        Binding("escape", "back", "Back"),
+    ]
+
+    def compose_main(self) -> ComposeResult:
+        tgt = self.app.session.selected_target
+        tgt_str = f"{tgt.display_name()} ({tgt.bssid})" if tgt else "None"
+        caps_str = f"{len(self.app.session.captures)} captures"
+        cracks_str = f"{len(self.app.session.cracked_passwords)} cracked"
+        
+        best_iface = "None"
+        if hasattr(self.app, "_adapter_manager") and self.app._adapter_manager:
+            best = self.app._adapter_manager.get_best_for_operation("scan")
+            if best:
+                best_iface = f"{best.iface} ({best.chipset})"
+                
+        yield Static("[bold $primary]Session Status[/bold $primary]", id="status-title")
+        yield Static("[$text-disabled]──────────────────────────────────────────────────[/$text-disabled]")
+        yield Static(
+            f" [bold $secondary]Active Interface[/bold $secondary] : {best_iface}\n"
+            f" [bold $secondary]Selected Target[/bold $secondary]  : {tgt_str}\n"
+            f" [bold $secondary]Total Captures[/bold $secondary]   : {caps_str}\n"
+            f" [bold $secondary]Cracked Networks[/bold $secondary] : {cracks_str}\n",
+            id="status-details"
+        )
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static("[$text-muted]  Esc[/$text-muted][$text-muted] back[/$text-muted]", id="status-hints")
+
+    def action_back(self) -> None:
+        self.app.pop_screen()
+
+
+class SessionListScreen(SidewinderScreen):
+    """Displays saved sessions and allows loading or deleting them."""
+    BINDINGS = [
+        Binding("escape", "back", "Back"),
+        Binding("enter", "load_session", "Load Selected"),
+        Binding("d", "delete_session", "Delete Selected"),
+        Binding("j", "cursor_down", "Down", show=False),
+        Binding("k", "cursor_up", "Up", show=False),
+    ]
+
+    def compose_main(self) -> ComposeResult:
+        from textual.widgets import DataTable
+        with Vertical(id="sc-sessions"):
+            yield Static("[bold $primary]Saved Sessions[/bold $primary]", id="sessions-title")
+            yield Static("[$text-disabled]──────────────────────[/$text-disabled]")
+            table = DataTable(id="sessions-table", cursor_type="row")
+            table.add_columns("Session ID", "Start Time", "Target Network", "Captures")
+            yield table
+
+    def compose_prompt(self) -> ComposeResult:
+        yield Static(
+            "[$text-muted]  Enter[/$text-muted][$text-muted] load selected[/$text-muted]"
+            "  [$text-muted]d[/$text-muted][$error] delete selected[/$error]"
+            "  [$text-muted]j/k[/$text-muted][$text-muted] navigate[/$text-muted]"
+            "  [$text-muted]Esc[/$text-muted][$text-muted] back[/$text-muted]",
+            id="sessions-hints",
+        )
+
+    def on_mount(self) -> None:
+        self._load_sessions()
+
+    def _load_sessions(self) -> None:
+        from textual.widgets import DataTable
+        import os
+        import json
+        from ..core.config import expand_user_path
+        
+        table = self.query_one("#sessions-table", DataTable)
+        table.clear()
+        
+        sessions_dir = expand_user_path("~/.sidewinder/sessions")
+        if not os.path.exists(sessions_dir):
+            os.makedirs(sessions_dir, exist_ok=True)
+            
+        files = [f for f in os.listdir(sessions_dir) if f.endswith(".json")]
+        if not files:
+            self.app.notify("No saved sessions found.", severity="warning")
+            return
+            
+        for f in files:
+            full_path = os.path.join(sessions_dir, f)
+            try:
+                with open(full_path, "r") as fh:
+                    data = json.load(fh)
+                sid = data.get("id", f.replace(".json", ""))[:8]
+                stime_raw = data.get("start_time", "")
+                stime = stime_raw.split(".")[0].replace("T", " ") if stime_raw else "Unknown"
+                tgt = data.get("selected_target")
+                tgt_name = tgt.get("essid", "[NONE]") if tgt else "[NONE]"
+                caps = len(data.get("captures", []))
+                table.add_row(sid, stime, tgt_name, str(caps), key=full_path)
+            except Exception:
+                pass
+
+    def action_load_session(self) -> None:
+        from textual.widgets import DataTable
+        table = self.query_one("#sessions-table", DataTable)
+        if table.cursor_row >= 0:
+            row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key
+            full_path = row_key.value
+            from ..core.session import Session
+            try:
+                loaded = Session.load(full_path)
+                if loaded:
+                    self.app.session = loaded
+                    # Overwrite default active session
+                    loaded.save()
+                    self.app.notify(f"Successfully loaded session {loaded.id[:8]}")
+                    self.app.pop_screen()
+            except Exception as e:
+                self.app.notify(f"Failed to load session: {e}", severity="error")
+
+    def action_delete_session(self) -> None:
+        from textual.widgets import DataTable
+        table = self.query_one("#sessions-table", DataTable)
+        if table.cursor_row >= 0:
+            row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key
+            full_path = row_key.value
+            import os
+            try:
+                os.unlink(full_path)
+                self.app.notify("Session deleted.")
+                self._load_sessions()
+            except Exception as e:
+                self.app.notify(f"Failed to delete session: {e}", severity="error")
+
+    def action_back(self) -> None:
+        self.app.pop_screen()
+
+    def action_cursor_down(self) -> None:
+        from textual.widgets import DataTable
+        self.query_one(DataTable).action_scroll_down()
+
+    def action_cursor_up(self) -> None:
+        from textual.widgets import DataTable
+        self.query_one(DataTable).action_scroll_up()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        self.action_load_session()

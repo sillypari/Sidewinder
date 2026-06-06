@@ -269,6 +269,25 @@ async def capture_passive(
     _mgr = mgr or get_manager()
     pcap_file = f"{output_prefix}-01.cap"
 
+    if "MOCK" in mon_iface:
+        # Simulated handshake capture sequence
+        logger.info("[MOCK] Starting mock handshake capture simulation")
+        if on_progress:
+            await asyncio.sleep(1.0)
+            on_progress(True, False, False, False, "partial")
+            await asyncio.sleep(1.0)
+            on_progress(True, True, False, False, "partial")
+            await asyncio.sleep(1.0)
+            on_progress(True, True, True, False, "partial")
+            await asyncio.sleep(1.0)
+            on_progress(True, True, True, True, "complete")
+        return HandshakeResult(
+            status="full",
+            m1=True, m2=True, m3=True, m4=True,
+            sha256="da39a3ee5e6b4b0d3255bfef95601890afd80709",
+            eapol_count=4,
+        )
+
     cmd = [
         "airodump-ng",
         mon_iface,

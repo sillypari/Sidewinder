@@ -22,14 +22,12 @@ class Spacer(Static):
 
 # ── ASCII art logo ──────────────────────────────────────────────────────────
 
-# Two-tone logo: "SIDE" in bright text, "WINDER" in dim — compact version
+# Two-tone logo: "SIDE" in primary text, "WINDER" in muted text
 LOGO: str = """\
-[$primary]                        [/$primary][$text-muted]                                              [/$text-muted]
-[$primary]  ████  ████  ████    ██████  [/$primary][$text-muted]██        ██  ████  ██    ██  ████    ██████  ████  [/$text-muted]
-[$primary]██      ██    ██    ██        [/$primary][$text-muted]██        ██    ██  ████  ██    ██  ██      ██    [/$text-muted]
-[$primary]  ████  ██    ██    ██████  [/$primary][$text-muted]██  ██    ██    ██  ██  ██    ██  ██████  ████  [/$text-muted]
-[$primary]      ██  ██    ██    ██      [/$text-muted]  ██  ██      ██    ████  ██    ██  ██      ██    [/$text-muted]
-[$primary]██████    ████  ████    ██████  [/$primary][$text-muted]    ████      ████  ██    ██  ████    ██████  ████  [/$text-muted]"""
+[$primary] ████   ██   ████   █████[/$primary]  [$text-muted]██   ██  ██  ██  ██ ████   █████ ████  [/$text-muted]
+[$primary]████    ██   ██  ██ ████ [/$primary]  [$text-muted]██   ██  ██  ███ ██ ██  ██ ████  ██  ██[/$text-muted]
+[$primary]   ██   ██   ██  ██ ██   [/$primary]  [$text-muted]██ █ ██  ██  ██ ███ ██  ██ ██    ████  [/$text-muted]
+[$primary]████    ██   ████   █████[/$primary]  [$text-muted] ██ ██   ██  ██  ██ ████   █████ ██  ██[/$text-muted]"""
 
 
 # ── Pure helper functions ────────────────────────────────────────────────────
@@ -128,7 +126,7 @@ class LogoWidget(Static):
 
 
 class AdapterStatusWidget(Static):
-    """Displays current WiFi adapter state in a Rich panel.
+    """Displays current WiFi adapter state and audit status in a Rich panel.
 
     Reactive attributes are updated externally as the adapter state changes.
     """
@@ -137,24 +135,57 @@ class AdapterStatusWidget(Static):
     adapter_status: reactive[str] = reactive("unknown")
     channel: reactive[str | int] = reactive("--")
     mode: reactive[str] = reactive("managed")
+    signal: reactive[int] = reactive(-100)
+    networks: reactive[int] = reactive(0)
+    clients: reactive[int] = reactive(0)
+    status: reactive[str] = reactive("idle")
+    time_elapsed: reactive[str] = reactive("00:00")
 
     def render(self) -> str:  # type: ignore[override]
         """Render the adapter status using theme variables."""
         status_color = {
-            "ready":      "$success",
-            "optimized":  "$success",
-            "monitor":    "$secondary",
-            "error":      "$error",
-            "unknown":    "$text-muted",
+            "ready":          "$success",
+            "optimized":      "$success",
+            "working":        "$success",
+            "limited":        "$warning",
+            "internet_only":  "$warning",
+            "monitor":        "$secondary",
+            "error":          "$error",
+            "unknown":        "$text-muted",
         }.get(self.adapter_status.lower(), "$text")
 
-        mode_color = "$secondary" if self.mode == "monitor" else "$accent"
+        mode_str = self.mode.upper()
+        if self.mode == "monitor":
+            mode_color = "$success"
+        elif self.mode == "managed":
+            mode_color = "$warning"
+        else:
+            mode_color = "$error"
+
+        # Signal block bar and color
+        sc = signal_color(self.signal)
+        bar = signal_bar(self.signal)
+
+        # Style status / audit state
+        status_style = "$primary"
+        if self.status == "scanning":
+            status_style = "$secondary"
+        elif self.status == "capturing":
+            status_style = "$warning"
+        elif self.status == "cracking":
+            status_style = "$accent"
+        elif self.status in ("complete", "success"):
+            status_style = "$success"
 
         return (
             f"[$text-muted]Interface :[/$text-muted] [$text]{self.adapter_name}[/$text]\n"
             f"[$text-muted]Status    :[/$text-muted] [{status_color}]{self.adapter_status}[/{status_color}]\n"
             f"[$text-muted]Channel   :[/$text-muted] [$warning]{self.channel}[/$warning]\n"
-            f"[$text-muted]Mode      :[/$text-muted] [{mode_color}]{self.mode}[/{mode_color}]"
+            f"[$text-muted]Mode      :[/$text-muted] [{mode_color}]{mode_str}[/{mode_color}]\n"
+            f"[$text-muted]Signal    :[/$text-muted] {bar} [{sc}]{self.signal}dBm[/{sc}]\n"
+            f"[$text-muted]Nets      :[/$text-muted] [$secondary]{self.networks}[/$secondary]\n"
+            f"[$text-muted]Clients   :[/$text-muted] [$secondary]{self.clients}[/$secondary]\n"
+            f"[$text-muted]Audit     :[/$text-muted] [{status_style}]{self.status}[/{status_style}] [$text-muted]({self.time_elapsed})[/$text-muted]"
         )
 
 
@@ -433,3 +464,107 @@ class PasswordCard(Static):
             f"  [$text-muted]Time    [/$text-muted]  [$text-muted]{time_str}[/$text-muted]"
         )
 
+
+
+
+
+
+class SignalBar(Static):
+    """Visual signal strength indicator using block character gauges."""
+    signal: reactive[int] = reactive(-100)
+
+    def render(self) -> str:
+        return signal_bar(self.signal)
+
+
+class ChannelIndicator(Static):
+    """Channel indicator with band coloring."""
+    channel: reactive[int] = reactive(1)
+
+    def render(self) -> str:
+        band = "5GHz" if self.channel >= 36 else "2.4GHz"
+        color = "$secondary" if band == "5GHz" else "$warning"
+        return f"[{color}]CH: {self.channel} ({band})[/{color}]"
+
+
+class AdapterCard(Static):
+    """Adapter card detailing interface and driver mode."""
+    name: reactive[str] = reactive("N/A")
+    mode: reactive[str] = reactive("managed")
+    driver: reactive[str] = reactive("unknown")
+
+    def render(self) -> str:
+        mode_style = "$success" if self.mode == "monitor" else "$warning"
+        return f"█ Adapter: [$primary]{self.name}[/$primary] [{mode_style}]{self.mode.upper()}[/{mode_style}] [$text-muted]({self.driver})[/$text-muted]"
+
+
+class AttackStatus(Static):
+    """Renders active deauth attack status details."""
+    sent: reactive[int] = reactive(0)
+    total: reactive[int] = reactive(0)
+    clients: reactive[int] = reactive(0)
+
+    def render(self) -> str:
+        return f"▣ Deauth: [$secondary]{self.sent}/{self.total}[/$secondary] frames, [$primary]{self.clients}[/$primary] clients"
+
+
+class InlineConfirm(Static):
+    """Expandable confirmation bar sitting at bottom of content container."""
+
+    message: reactive[str] = reactive("Are you sure?")
+    choices: list[str] = ["Allow once", "Allow always"]
+    selected_idx: reactive[int] = reactive(0)
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._on_confirm = None
+        self.visible = False
+
+    def confirm(self, message: str, choices: list[str], on_confirm: Any) -> None:
+        self.message = message
+        self.choices = choices
+        self.selected_idx = 0
+        self._on_confirm = on_confirm
+        self.add_class("active")
+        self.visible = True
+        self.focus()
+
+    def dismiss(self, choice_idx: int | None = None) -> None:
+        self.remove_class("active")
+        self.visible = False
+        if self._on_confirm and choice_idx is not None:
+            self._on_confirm(choice_idx)
+
+    def render(self) -> str:
+        if not self.visible:
+            return ""
+        options = []
+        for i, choice in enumerate(self.choices):
+            if i == self.selected_idx:
+                options.append(f"[reverse bold $primary] {choice} [/reverse bold $primary]")
+            else:
+                options.append(f"  {choice}  ")
+        opt_str = "  ".join(options)
+        return (
+            f"[$warning]△ {self.message}[/$warning]\n"
+            f"  {opt_str}\n"
+            f"  [$text-muted]⇆ select  Enter confirm  Esc cancel[/$text-muted]"
+        )
+
+    def on_key(self, event) -> None:
+        if not self.visible:
+            return
+        if event.key in ("left", "h"):
+            self.selected_idx = max(0, self.selected_idx - 1)
+            self.refresh()
+            event.stop()
+        elif event.key in ("right", "l"):
+            self.selected_idx = min(len(self.choices) - 1, self.selected_idx + 1)
+            self.refresh()
+            event.stop()
+        elif event.key == "enter":
+            self.dismiss(self.selected_idx)
+            event.stop()
+        elif event.key == "escape":
+            self.dismiss(None)
+            event.stop()

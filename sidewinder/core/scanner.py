@@ -207,6 +207,30 @@ class ScanEngine:
 
         logger.info("Starting scan on %s", mon_iface)
         self._running = True
+
+        if "MOCK" in mon_iface:
+            # Simulated scan loop for mock/development environment
+            mock_nets = [
+                Network(bssid="00:11:22:33:44:55", channel=1, signal=-45, privacy="WPA2", cipher="CCMP", auth="PSK", essid="HomeWiFi", wps=True),
+                Network(bssid="66:77:88:99:AA:BB", channel=6, signal=-62, privacy="WPA2", cipher="CCMP", auth="PSK", essid="OfficeNet", wps=False),
+                Network(bssid="CC:DD:EE:FF:00:11", channel=11, signal=-78, privacy="WEP", cipher="WEP", auth="NONE", essid="CoffeeShop", wps=False),
+            ]
+            mock_clients = [
+                Client(mac="AA:BB:CC:DD:EE:FF", bssid="00:11:22:33:44:55", signal=-50, packets=250),
+                Client(mac="11:22:33:44:55:66", bssid="66:77:88:99:AA:BB", signal=-65, packets=45),
+            ]
+            while self._running:
+                await asyncio.sleep(1.0)
+                if on_network:
+                    for n in mock_nets:
+                        self.parser.networks[n.bssid] = n
+                        on_network(n)
+                if on_client:
+                    for c in mock_clients:
+                        self.parser.clients[c.mac] = c
+                        on_client(c)
+            return
+
         self._proc = await self.mgr.start_background(cmd)
 
         # Poll the CSV file for updates (airodump-ng stdout is screen refreshes)

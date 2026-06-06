@@ -63,3 +63,34 @@ async def test_scan_engine_start_stop():
         assert mock_kill.call_count >= 1
         
         task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_mock_interface_scan():
+    engine = ScanEngine()
+    networks = []
+    clients = []
+    
+    def on_network(n):
+        networks.append(n)
+    def on_client(c):
+        clients.append(c)
+        
+    import asyncio
+    task = asyncio.create_task(engine.scan("wlan0 (MOCK)", on_network=on_network, on_client=on_client))
+    
+    # Wait a bit for mock scan loop to run
+    await asyncio.sleep(1.2)
+    
+    assert len(networks) > 0
+    assert len(clients) > 0
+    assert any(n.essid == "HomeWiFi" for n in networks)
+    
+    engine.stop()
+    await engine.stop_and_wait()
+    assert engine._running is False
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+

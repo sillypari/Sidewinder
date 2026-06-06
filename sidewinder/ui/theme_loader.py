@@ -57,7 +57,8 @@ def register_themes(app: App, settings) -> None:
     # Load user themes
     load_user = getattr(settings, "load_user_themes", True)
     theme_dir_str = getattr(settings, "theme_directory", "~/.sidewinder/themes")
-    theme_dir = Path(os.path.expanduser(theme_dir_str) if isinstance(theme_dir_str, str) else theme_dir_str)
+    from ..core.config import expand_user_path
+    theme_dir = Path(expand_user_path(theme_dir_str) if isinstance(theme_dir_str, str) else theme_dir_str)
     
     if load_user:
         try:

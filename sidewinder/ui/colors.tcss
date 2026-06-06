@@ -4,27 +4,6 @@
 
 /* ── Global ─────────────────────────────────────────────────────────────── */
 
-$input-cursor-background: #4CAF50;
-$footer-background: transparent;
-$method-scan: #0ea5e9;
-$method-deauth: #ef4444;
-$method-passive: #22c55e;
-$method-pmkid: #f59e0b;
-$method-wps: #8b5cf6;
-$method-evil-twin: #f97316;
-$method-crack: #14b8a6;
-$signal-strong: #22c55e;
-$signal-medium: #f59e0b;
-$signal-weak: #ef4444;
-$enc-wpa3: #00BCD4;
-$enc-wpa2: #22c55e;
-$enc-wpa: #4CAF50;
-$enc-wep: #f59e0b;
-$enc-open: #ef4444;
-$sidebar-active: #22c55e;
-$sidebar-inactive: #6b7280;
-$sidebar-monitor: #0ea5e9;
-
 
 
 Screen {
@@ -37,6 +16,7 @@ Screen {
 ScrollableContainer {
     background: $panel;
     border: round $accent 40%;
+    scrollbar-gutter: stable;
 }
 
 ScrollableContainer:focus-within {
@@ -57,10 +37,15 @@ Header .header--title {
 }
 
 Footer {
-    background: transparent;
+    background: $surface;
     color: $foreground;
-    border: none;
+    dock: bottom;
+    height: 1;
+    border-top: solid $accent 30%;
+    padding: 0 4;
 }
+
+
 
 /* ── DataTable ──────────────────────────────────────────────────────────── */
 
@@ -69,6 +54,7 @@ DataTable {
     color: $foreground;
     border: none;
     border-left: thick transparent;
+    scrollbar-gutter: stable;
 }
 
 DataTable:focus {
@@ -118,6 +104,7 @@ OptionList {
     background: $panel;
     border: round $accent 40%;
     color: $foreground;
+    scrollbar-gutter: stable;
 }
 
 OptionList:focus {
@@ -145,21 +132,53 @@ ListView, ListView:focus, ListView:focus-within {
     padding: 0;
 }
 
+#menu {
+    background: transparent;
+    width: 65;
+    height: 15;
+    padding: 0;
+    overflow-y: hidden;
+}
+
+#menu ListItem {
+    background: transparent;
+    padding: 0 2;
+    height: 1;
+    margin-bottom: 1;
+    color: $text-muted;
+    border-left: thick transparent;
+}
+
+#menu ListItem:hover {
+    background: $surface;
+    color: $text;
+    border-left: thick $surface;
+}
+
+#menu ListItem.-highlighted {
+    background: $panel;
+    color: $primary;
+    border-left: thick $primary;
+    text-style: bold;
+}
+
+
 ListItem {
     padding: 0 2;
     height: 1;
-    color: $foreground;
-    background: $background;
+    color: $text-muted;
+    background: transparent;
 }
 
 ListItem:hover {
     background: $surface;
-    color: $foreground;
+    color: $text;
 }
 
 ListItem.-highlighted {
-    background: $surface;
-    color: $foreground;
+    background: $panel;
+    color: $primary;
+    text-style: bold;
 }
 
 ListItem > Label {
@@ -254,6 +273,7 @@ ProgressBar .bar--indeterminate {
     align: center middle;
     width: 100%;
     height: 100%;
+    padding: 0 4 2 4;
 }
 
 /* Generic centered column — used by menu, adapter, hints */
@@ -290,7 +310,7 @@ Center {
 
 #hints {
     color: $foreground;
-    padding: 1 4;
+    padding: 1 4 0 4;
     text-align: center;
     width: 56;
 }
@@ -306,20 +326,9 @@ Center {
     content-align: right middle;
 }
 
-#scan-table-container {
-    background: $background;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    EAPOL TRACKER
    ═══════════════════════════════════════════════════════════════════════════ */
-
-#eapol-tracker {
-    border: none;
-    background: transparent;
-    padding: 0;
-    height: auto;
-}
 
 #attack-panel {
     border: round $accent 40%;
@@ -347,7 +356,7 @@ Center {
 #tooltip-panel {
     width: 1fr;
     background: $panel;
-    padding: 1 2;
+    padding: 1 4 2 4;
     border: none;
 }
 
@@ -387,7 +396,7 @@ Center {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 #adapter-screen-container {
-    padding: 1 3;
+    padding: 1 4 2 4;
 }
 
 #adapter-title {
@@ -406,7 +415,7 @@ Center {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 #command-container {
-    padding: 1 3;
+    padding: 1 4 2 4;
 }
 
 #command-title {
@@ -474,7 +483,7 @@ Center {
 
 #sc-scan, #sc-target, #sc-capture, #sc-deauth,
 #sc-crack, #sc-result, #sc-error, #sc-resume {
-    padding: 1 3;
+    padding: 1 4 2 4;
 }
 
 #sc-method {
@@ -542,7 +551,7 @@ Center {
 #method-list {
     width: 2fr;
     border-right: tall $surface;
-    padding: 0 2;
+    padding: 1 4 2 4;
     background: $background;
 }
 
@@ -579,7 +588,7 @@ Center {
 
 #sc-wordlist, #sc-engine, #sc-cleanup, #sc-services,
 #sc-monitor, #sc-scanopts, #sc-apdetails, #sc-captures {
-    padding: 1 3;
+    padding: 1 4 2 4;
 }
 
 #wordlist-title, #engine-title, #cleanup-title, #services-title,
@@ -632,7 +641,7 @@ Center {
 /* ── Theme Selector Screen ────────────────────────────────── */
 
 #theme-select-container {
-    padding: 1 3;
+    padding: 1 4 2 4;
 }
 
 #theme-title {
@@ -664,14 +673,26 @@ Center {
 /* ── Global Scrollbars (From Posting) ─────────────────────── */
 
 * {
-    scrollbar-color: $primary 10%;
+    scrollbar-color: $primary 30%;
     scrollbar-color-hover: $primary 80%;
     scrollbar-color-active: $primary;
+    scrollbar-background: transparent;
+    scrollbar-background-hover: transparent;
+    scrollbar-background-active: transparent;
     scrollbar-size-vertical: 1;
 }
 
 *:focus {
-    scrollbar-color: $primary 50%;
+    scrollbar-color: $primary 60%;
+    scrollbar-background: transparent;
+    scrollbar-background-hover: transparent;
+    scrollbar-background-active: transparent;
+}
+
+/* ── Toast Notifications ─────────────────────────────────── */
+
+ToastRack {
+    margin: 0 2 5 2;
 }
 
 /* ── Compact Mode ─────────────────────────────────────────── */
@@ -704,5 +725,118 @@ Center {
     height: 1;
 }
 
+/* ── OpenCode Layout Refactoring ── */
 
+#screen-layout {
+    layout: horizontal;
+    width: 100%;
+    height: 1fr;
+}
+
+#left-container {
+    layout: vertical;
+    width: 1fr;
+    height: 100%;
+}
+
+#main-content {
+    width: 100%;
+    height: 1fr;
+    border: none;
+    padding: 1 2;
+}
+
+#main-content:focus-within {
+    border: none;
+}
+
+#prompt-area {
+    width: 100%;
+    height: auto;
+    background: $panel;
+    padding: 0;
+}
+
+#prompt-area Static {
+    color: $text-muted;
+    padding-top: 1;
+    padding-left: 2;
+}
+
+#prompt-area Static.leader-overlay {
+    padding-top: 0;
+    padding-left: 2;
+    height: 1;
+}
+
+#sidebar-sep {
+    width: 1;
+    height: 100%;
+    background: $background;
+    color: $text-muted;
+    text-align: center;
+}
+
+#right-sidebar {
+    width: 35;
+    height: 100%;
+    background: $panel;
+    border-left: solid $accent 30%;
+    padding: 1 2;
+}
+
+
+/* Custom Status & Confirmation Bars */
+
+
+InlineConfirm {
+    dock: bottom;
+    height: 3;
+    background: $surface;
+    border-top: solid $accent;
+    display: none;
+    padding: 0 2;
+    align: center middle;
+}
+
+InlineConfirm.active {
+    display: block;
+}
+
+/* Inline Action Overlay for Leader Keys */
+.leader-overlay {
+    background: $surface;
+    color: $foreground;
+    height: 1;
+    border-top: solid $accent;
+    padding: 0 2;
+}
+#right-sidebar #adapter-status {
+    width: 100%;
+    padding: 0;
+    background: transparent;
+}
+
+#sidebar-error-panel {
+    display: none;
+    height: auto;
+    margin-top: 1;
+    border-top: solid $error;
+    padding-top: 1;
+}
+
+#sidebar-error-panel ErrorCard {
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+}
+
+#btn-copy-error {
+    width: 100%;
+    margin-top: 1;
+    background: $error;
+    color: $background;
+    text-style: bold;
+}
 

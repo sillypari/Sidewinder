@@ -46,6 +46,7 @@ SLASH_COMMANDS = {
     "/help":     "Open help tutorial",
     "/status":   "Show current status",
     "/adapter":  "Switch adapter",
+    "/session":  "Manage saved sessions",
     "/theme":    "Switch visual theme (opencode/classic)",
     "/compact":  "Toggle compact visual mode",
     "/quit":     "Exit Sidewinder",
@@ -63,7 +64,7 @@ class SidewinderApp(App):
     TITLE = "Sidewinder"
     SUB_TITLE = "Native Linux WiFi Audit Tool"
     CSS_PATH = "colors.tcss"
-    theme = "opencode"
+    theme = "midnight"
     dark = True
 
     BINDINGS = [
@@ -95,6 +96,10 @@ class SidewinderApp(App):
             self.theme = self.settings.theme
         except Exception:
             self.theme = "midnight"
+
+        # Force refresh CSS and recompile layout to apply the loaded theme's colors
+        self.refresh_css(animate=False)
+        self.refresh(layout=True)
 
         self.push_screen(MainMenuScreen())
         asyncio.create_task(self._initialize())
@@ -159,10 +164,10 @@ class SidewinderApp(App):
         """Open help/tutorial screen."""
         self.push_screen(HelpScreen())
 
-    def action_cleanup(self) -> None:
-        """Run full cleanup (spawns async work as a task)."""
+    async def action_cleanup(self) -> None:
+        """Run full cleanup."""
         if self._cleanup_manager:
-            asyncio.ensure_future(self._run_cleanup())
+            await self._run_cleanup()
 
     async def _run_cleanup(self) -> None:
         """Actual async cleanup work."""
@@ -178,14 +183,18 @@ class SidewinderApp(App):
         self.push_screen(CommandPaletteScreen())
 
     def show_error(self, severity: str, what: str, why: str, how: list[str], raw: str = "") -> None:
-        """Push an error screen."""
-        self.push_screen(ErrorScreen(
-            severity=severity,
-            what=what,
-            why=why,
-            how_to_fix=how,
-            raw_error=raw,
-        ))
+        """Show error inside active screen's sidebar or fallback to ErrorScreen."""
+        if self.screen and hasattr(self.screen, "show_sidebar_error"):
+            self.screen.show_sidebar_error(severity, what, why, how, raw)
+        else:
+            from .screens import ErrorScreen
+            self.push_screen(ErrorScreen(
+                severity=severity,
+                what=what,
+                why=why,
+                how_to_fix=how,
+                raw_error=raw,
+            ))
 
     def notify_error(self, message: str) -> None:
         """Show a brief error notification (non-blocking)."""

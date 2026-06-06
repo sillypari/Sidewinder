@@ -43,7 +43,7 @@ class SidewinderConfig:
 
     def save(self, path: str = "~/.sidewinder/config.json") -> None:
         """Save configuration to disk."""
-        expanded_path = os.path.expanduser(path)
+        expanded_path = expand_user_path(path)
         os.makedirs(os.path.dirname(expanded_path), exist_ok=True)
         try:
             with open(expanded_path, "w") as f:
@@ -54,7 +54,7 @@ class SidewinderConfig:
     @classmethod
     def load(cls, path: str = "~/.sidewinder/config.json") -> "SidewinderConfig":
         """Load configuration from disk, creating defaults if missing."""
-        expanded_path = os.path.expanduser(path)
+        expanded_path = expand_user_path(path)
         if not os.path.exists(expanded_path):
             config = cls()
             config.save(path)
@@ -74,8 +74,31 @@ class SidewinderConfig:
 
     def get_capture_path(self, bssid: str) -> str:
         """Generate a capture file path for a given BSSID."""
-        expanded_dir = os.path.expanduser(self.capture_dir)
+        expanded_dir = expand_user_path(self.capture_dir)
         os.makedirs(expanded_dir, exist_ok=True)
         import re
         sanitized = re.sub(r'[^a-zA-Z0-9]', '', bssid)
         return os.path.join(expanded_dir, f"capture_{sanitized}")
+
+
+def get_home_dir() -> str:
+    """Get the home directory of the invoking user, even under sudo."""
+    sudo_user = os.environ.get("SUDO_USER")
+    if sudo_user:
+        try:
+            import pwd
+            return pwd.getpwnam(sudo_user).pw_dir
+        except (ImportError, KeyError):
+            pass
+    return os.path.expanduser("~")
+
+
+def expand_user_path(path: str) -> str:
+    """Expand user path using invoking user's home directory under sudo if available."""
+    if path.startswith("~"):
+        home = get_home_dir()
+        # Remove leading ~ and any separator directly following it
+        rel_path = path[2:] if path.startswith("~/") else path[1:]
+        return os.path.join(home, rel_path)
+    return os.path.expanduser(path)
+

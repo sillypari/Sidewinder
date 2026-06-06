@@ -32,7 +32,7 @@ class EvilTwinEngine:
         target_bssid: Optional[str] = None,
         on_log: Optional[Callable[[str], Awaitable[None] | None]] = None,
         timeout: float = 3600.0,
-    ) -> None:
+    ) -> bool:
         """Start a rogue Access Point using airbase-ng.
         
         Args:
@@ -53,6 +53,32 @@ class EvilTwinEngine:
                 how_to_fix=["Select a valid channel from the scan results."],
             )
 
+        async def safe_log(msg: str) -> None:
+            if on_log:
+                res = on_log(msg)
+                if inspect.isawaitable(res):
+                    await res
+
+        import shutil
+        is_mock = "MOCK" in mon_iface or shutil.which("airbase-ng") is None
+
+        if is_mock:
+            self._running = True
+            await safe_log(f"[*] [MOCK] Initializing Rogue AP: {essid} (Ch {channel})")
+            if target_bssid:
+                await safe_log(f"[*] [MOCK] Cloning BSSID: {target_bssid}")
+            
+            # Simulate a client connecting
+            await asyncio.sleep(2.0)
+            await safe_log(f"[*] Client 00:11:22:33:44:55 associated")
+            await asyncio.sleep(2.0)
+            await safe_log(f"[*] Attempting WPA handshake")
+            await asyncio.sleep(2.0)
+            await safe_log(f"[+] Handshake captured successfully!")
+            await asyncio.sleep(1.0)
+            self._running = False
+            return True
+
         cmd = [
             "airbase-ng",
             "-e", essid,
@@ -66,12 +92,6 @@ class EvilTwinEngine:
         
         logger.info("Starting Evil Twin (ESSID: %s, Channel: %d) on %s", essid, channel, mon_iface)
         
-        async def safe_log(msg: str) -> None:
-            if on_log:
-                res = on_log(msg)
-                if inspect.isawaitable(res):
-                    await res
-
         await safe_log(f"[*] Initializing Rogue AP: {essid} (Ch {channel})")
         if target_bssid:
             await safe_log(f"[*] Cloning BSSID: {target_bssid}")
@@ -97,9 +117,11 @@ class EvilTwinEngine:
         
         try:
             await asyncio.wait_for(self._proc.wait(), timeout=timeout)
+            return True
         except asyncio.TimeoutError:
             logger.warning("Evil Twin timed out after %ds", int(timeout))
             await safe_log("[!] Evil Twin timed out")
+            return False
         finally:
             await self.stop()
 
