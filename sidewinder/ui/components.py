@@ -22,15 +22,14 @@ class Spacer(Static):
 
 # ── ASCII art logo ──────────────────────────────────────────────────────────
 
-# Two-tone logo: "SIDE" in bright text, "WINDER" in dim — exact opencode style
+# Two-tone logo: "SIDE" in bright text, "WINDER" in dim — compact version
 LOGO: str = """\
-[$primary]                                      [/$primary][$text-muted]                                                                  [/$text-muted]
-[$primary]  ██████  ██████  ██████    ████████  [/$primary][$text-muted]██          ██  ██████  ██      ██  ██████    ████████  ██████    [/$text-muted]
-[$primary]██          ██    ██    ██  ██        [/$primary][$text-muted]██          ██    ██    ████    ██  ██    ██  ██        ██    ██  [/$text-muted]
-[$primary]  ████      ██    ██    ██  ██████    [/$primary][$text-muted]██    ██    ██    ██    ██  ██  ██  ██    ██  ██████    ██████    [/$text-muted]
-[$primary]      ██    ██    ██    ██  ██        [/$primary][$text-muted]  ██  ██  ██      ██    ██    ████  ██    ██  ██        ██    ██  [/$text-muted]
-[$primary]██████    ██████  ██████    ████████  [/$primary][$text-muted]    ██  ██      ██████  ██      ██  ██████    ████████  ██    ██  [/$text-muted]
-[$primary]                                      [/$primary][$text-muted]                                                                  [/$text-muted]"""
+[$primary]                        [/$primary][$text-muted]                                              [/$text-muted]
+[$primary]  ████  ████  ████    ██████  [/$primary][$text-muted]██        ██  ████  ██    ██  ████    ██████  ████  [/$text-muted]
+[$primary]██      ██    ██    ██        [/$primary][$text-muted]██        ██    ██  ████  ██    ██  ██      ██    [/$text-muted]
+[$primary]  ████  ██    ██    ██████  [/$primary][$text-muted]██  ██    ██    ██  ██  ██    ██  ██████  ████  [/$text-muted]
+[$primary]      ██  ██    ██    ██      [/$text-muted]  ██  ██      ██    ████  ██    ██  ██      ██    [/$text-muted]
+[$primary]██████    ████  ████    ██████  [/$primary][$text-muted]    ████      ████  ██    ██  ████    ██████  ████  [/$text-muted]"""
 
 
 # ── Pure helper functions ────────────────────────────────────────────────────

@@ -46,9 +46,9 @@ ScrollableContainer:focus-within {
 /* ── Header & Footer ────────────────────────────────────────────────────── */
 
 Header {
-    background: $panel;
+    background: transparent;
     color: $secondary;
-    border-bottom: tall $surface;
+    border: none;
 }
 
 Header .header--title {
@@ -57,10 +57,9 @@ Header .header--title {
 }
 
 Footer {
-    background: $panel;
+    background: transparent;
     color: $foreground;
     border: none;
-    border-top: tall $surface;
 }
 
 /* ── DataTable ──────────────────────────────────────────────────────────── */

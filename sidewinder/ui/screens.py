@@ -82,7 +82,7 @@ class MainMenuScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Vertical(id="main-container"):
-            yield Spacer(flex=1)
+            yield Spacer(height=2)
             with Center():
                 yield LogoWidget(id="logo")
             yield Spacer(height=1)
@@ -1190,6 +1190,8 @@ class CommandPaletteScreen(Screen):
     BINDINGS = [
         Binding("escape", "back", "Close"),
         Binding("enter", "submit", "Submit"),
+        Binding("up", "nav_up", "Up", show=False),
+        Binding("down", "nav_down", "Down", show=False),
     ]
 
     def compose(self) -> ComposeResult:
@@ -1211,6 +1213,9 @@ class CommandPaletteScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one(Input).focus()
+        olist = self.query_one(OptionList)
+        if olist.option_count > 0:
+            olist.highlighted = 0
 
     def on_input_changed(self, event) -> None:
         from .app import SLASH_COMMANDS
@@ -1220,6 +1225,29 @@ class CommandPaletteScreen(Screen):
         for cmd, desc in SLASH_COMMANDS.items():
             if val in cmd.lower() or val in desc.lower():
                 olist.add_option(Option(f"{cmd} - {desc}", id=cmd))
+        if olist.option_count > 0:
+            olist.highlighted = 0
+        else:
+            olist.highlighted = None
+
+    def on_input_submitted(self, event) -> None:
+        self.action_submit()
+
+    def action_nav_up(self) -> None:
+        olist = self.query_one(OptionList)
+        if olist.option_count > 0:
+            if olist.highlighted is None:
+                olist.highlighted = olist.option_count - 1
+            elif olist.highlighted > 0:
+                olist.highlighted -= 1
+
+    def action_nav_down(self) -> None:
+        olist = self.query_one(OptionList)
+        if olist.option_count > 0:
+            if olist.highlighted is None:
+                olist.highlighted = 0
+            elif olist.highlighted < olist.option_count - 1:
+                olist.highlighted += 1
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -1298,10 +1326,16 @@ class ThemeSelectScreen(Screen):
         theme_id = event.option.id
         if theme_id in self.app.available_themes:
             self.app.theme = theme_id
+            self.app.refresh(layout=True)
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        """Confirm selection when pressing Enter on the option list."""
+        self.action_select()
 
     def action_cancel(self) -> None:
         """Cancel selection and restore original theme."""
         self.app.theme = self._original_theme
+        self.app.refresh(layout=True)
         self.app.pop_screen()
 
     def action_select(self) -> None:
@@ -1310,6 +1344,7 @@ class ThemeSelectScreen(Screen):
             self.query_one(OptionList).highlighted
         ).id
         self.app.theme = selected_theme
+        self.app.refresh(layout=True)
         self.app.settings.theme = selected_theme
         self.app.settings.save()
         self.app.notify(f"Theme set to {selected_theme}", severity="success")
@@ -1610,6 +1645,9 @@ class ScanOptionsScreen(Screen):
                 id="scanopts-hints",
             )
         yield Footer()
+
+    def on_input_submitted(self, event) -> None:
+        self.action_start_scan()
 
     def action_start_scan(self) -> None:
         # In a real app, we'd pass these options to the scan engine.
