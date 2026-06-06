@@ -1005,11 +1005,39 @@ Colors: Left = dim gray (#90), Right = white/bold
 Gap:    1 space between left and right halves
 ```
 
-#### Sidewinder Logo (target)
+#### Sidewinder Logo — ORIGINAL (v0.10, before shrink)
 ```
-Width:  ~50 characters (adjust to fit snake ASCII)
+Width:  ~90 characters
 Height: 6 lines
-Colors: Line 1-2 = $primary (green), Line 3-6 = $text (white)
+Colors: SIDE = $primary (green), WINDER = $text-muted (dim)
+Style:  Full block characters (██████), wide spacing
+```
+
+```
+[$primary]                                      [/$primary][$text-muted]                                                                  [/$text-muted]
+[$primary]  ██████  ██████  ██████    ████████  [/$primary][$text-muted]██          ██  ██████  ██      ██  ██████    ████████  ██████    [/$text-muted]
+[$primary]██          ██    ██    ██  ██        [/$primary][$text-muted]██          ██    ██    ████    ██  ██    ██  ██        ██    ██  [/$text-muted]
+[$primary]  ████      ██    ██    ██  ██████    [/$primary][$text-muted]██    ██    ██    ██    ██  ██  ██  ██    ██  ██████    ██████    [/$text-muted]
+[$primary]      ██    ██    ██    ██  ██        [/$text-muted]  ██  ██  ██      ██    ██    ████  ██    ██  ██        ██    ██  [/$text-muted]
+[$primary]██████    ██████  ██████    ████████  [/$primary][$text-muted]    ██  ██      ██████  ██      ██  ██████    ████████  ██    ██  [/$text-muted]
+[$primary]                                      [/$primary][$text-muted]                                                                  [/$text-muted]
+```
+
+#### Sidewinder Logo — CURRENT (v0.11, 15% smaller)
+```
+Width:  ~70 characters
+Height: 5 lines (reduced from 6)
+Colors: SIDE = $primary (green), WINDER = $text-muted (dim)
+Style:  Condensed block characters (████), tighter spacing
+```
+
+```
+[$primary]                        [/$primary][$text-muted]                                              [/$text-muted]
+[$primary]  ████  ████  ████    ██████  [/$primary][$text-muted]██        ██  ████  ██    ██  ████    ██████  ████  [/$text-muted]
+[$primary]██      ██    ██    ██        [/$primary][$text-muted]██        ██    ██  ████  ██    ██  ██      ██    [/$text-muted]
+[$primary]  ████  ██    ██    ██████  [/$primary][$text-muted]██  ██    ██    ██  ██  ██    ██  ██████  ████  [/$text-muted]
+[$primary]      ██  ██    ██    ██      [/$text-muted]  ██  ██      ██    ████  ██    ██  ██      ██    [/$text-muted]
+[$primary]██████    ████  ████    ██████  [/$primary][$text-muted]    ████      ████  ██    ██  ████    ██████  ████  [/$text-muted]
 ```
 
 #### Logo Placement (Home Screen)
@@ -1018,25 +1046,35 @@ Colors: Line 1-2 = $primary (green), Line 3-6 = $text (white)
 │  [Header: 1 row]                                     │
 ├──────────────────────────────────────────────────────┤
 │                                                      │
-│  ← empty space: flex-grow=1 (fills top half) →       │
-│                                                      │
-│  ← empty space: height=4 rows (spacer below flex) →  │
+│  ← height=2 (spacer, reduced from flex=1) →          │
 │                                                      │
 │  ╔═══╗                                               │
-│  ║ S ║ ← Logo: 6 rows tall, centered horizontally   │
+│  ║ S ║ ← Logo: 5 rows tall, centered horizontally   │
 │  ║ I ║   paddingLeft: 2, paddingRight: 2             │
 │  ║ D ║   maxWidth: terminal.width - 4                │
 │  ║ E ║                                               │
 │  ║ W ║                                               │
 │  ╚═══╝                                               │
 │                                                      │
-│  ← empty space: height=1 row (spacer) →              │
+│  ← height=1 row (spacer) →                           │
 │                                                      │
 │  ┌────────────────────────────────────────┐          │
-│  │  [Prompt: maxWidth=75 chars, centered] │          │
+│  │  [Adapter Status Widget]               │          │
 │  └────────────────────────────────────────┘          │
 │                                                      │
-│  ← empty space: flex-grow=1 (fills bottom half) →    │
+│  ← height=1 row (spacer) →                           │
+│                                                      │
+│  ┌────────────────────────────────────────┐          │
+│  │  [Menu: 1-7, 0]                        │          │
+│  └────────────────────────────────────────┘          │
+│                                                      │
+│  ← height=1 row (spacer) →                           │
+│                                                      │
+│  ┌────────────────────────────────────────┐          │
+│  │  [Hints: / command ? help Esc quit]    │          │
+│  └────────────────────────────────────────┘          │
+│                                                      │
+│  ← flex=1 (fills remaining space) →                  │
 │                                                      │
 ├──────────────────────────────────────────────────────┤
 │  [Footer: 1 row]                                     │
