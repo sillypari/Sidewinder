@@ -81,27 +81,28 @@ class SidewinderScreen(Screen):
     leader_prefix: reactive[str | None] = reactive(None)
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="screen-layout"):
-            with Vertical(id="left-container"):
-                with ScrollableContainer(id="main-content"):
-                    yield from self.compose_main()
-                with Vertical(id="prompt-area"):
-                    yield Static("", id="leader-overlay", classes="leader-overlay")
-                    yield InlineConfirm(id="inline-confirm")
-                    yield from self.compose_prompt()
-            yield Static("█", id="sidebar-sep")
-            with Vertical(id="right-sidebar"):
-                yield from self.compose_sidebar()
-        yield Static(
-            "[$text-muted][/$text-muted] "
-            "[$text-muted]/[/$text-muted] scan  "
-            "[$text-muted]?[/$text-muted] help  "
-            "[$text-muted]j/k[/$text-muted] nav  "
-            "[$text-muted]Enter[/$text-muted] select  "
-            "[$text-muted]Esc[/$text-muted] back  "
-            "[$text-muted]^Q[/$text-muted] quit",
-            id="nav-bar",
-        )
+        with Vertical(id="app-container"):
+            with Horizontal(id="screen-layout"):
+                with Vertical(id="left-container"):
+                    with ScrollableContainer(id="main-content"):
+                        yield from self.compose_main()
+                    with Vertical(id="prompt-area"):
+                        yield Static("", id="leader-overlay", classes="leader-overlay")
+                        yield InlineConfirm(id="inline-confirm")
+                        yield from self.compose_prompt()
+                yield Static("█", id="sidebar-sep")
+                with Vertical(id="right-sidebar"):
+                    yield from self.compose_sidebar()
+            yield Static(
+                "[$text-muted][/$text-muted] "
+                "[$text-muted]/[/$text-muted] scan  "
+                "[$text-muted]?[/$text-muted] help  "
+                "[$text-muted]j/k[/$text-muted] nav  "
+                "[$text-muted]Enter[/$text-muted] select  "
+                "[$text-muted]Esc[/$text-muted] back  "
+                "[$text-muted]^Q[/$text-muted] quit",
+                id="nav-bar",
+            )
 
     def compose_main(self) -> ComposeResult:
         """Compose main content. Must be overridden by subclasses."""
