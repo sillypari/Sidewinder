@@ -305,7 +305,10 @@ class MainMenuScreen(SidewinderScreen):
         yield Center(ListView(id="menu"))
 
     def compose_prompt(self) -> ComposeResult:
-        return []
+        yield Static(
+            "[$text-muted]/[/$text-muted] command   [$text-muted]•[/$text-muted]   [$text-muted]?[/$text-muted] help   [$text-muted]•[/$text-muted]   [$text-muted]Esc[/$text-muted] quit",
+            id="hints",
+        )
 
     def on_mount(self) -> None:
         super().on_mount()
