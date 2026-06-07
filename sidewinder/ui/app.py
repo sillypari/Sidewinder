@@ -31,6 +31,7 @@ from .screens import (
     ResultScreen,
     ScanScreen,
 )
+from .components import StatusBar
 from ..core.session import Session
 from ..core.config import SidewinderConfig
 
@@ -88,6 +89,7 @@ class SidewinderApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
+        yield StatusBar(id="global-status-bar")
 
     def on_mount(self) -> None:
         """Initialize adapters, install signal handlers, and show main menu."""
@@ -107,6 +109,21 @@ class SidewinderApp(App):
             self.push_screen(ResumeScreen(self._existing_session))
         # Initial check
         self.call_after_refresh(self._check_size)
+        # Start global status bar refresh timer
+        self._status_timer = self.set_interval(2.0, self._update_global_status)
+
+    def _update_global_status(self) -> None:
+        """Refresh the global persistent status bar."""
+        try:
+            sbar = self.query_one("#global-status-bar", StatusBar)
+            if self._adapter_manager:
+                best = self._adapter_manager.get_best_for_operation("scan")
+                if best:
+                    sbar.adapter = best.iface
+                    sbar.mode = best.current_mode
+                    sbar.channel = "--"
+        except Exception:
+            pass
 
     def on_resize(self, event) -> None:
         self._check_size()

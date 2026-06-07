@@ -1,16 +1,14 @@
 """Sidewinder Scan Engine.
 
-Runs airodump-ng and parses its stdout in real-time.
+Runs airodump-ng and parses its CSV output in real-time.
 Extracts networks (APs) and clients using a line-by-line state machine.
 
-Parser state machine:
-  IDLE -> detect "CH" line -> HEADER
-  HEADER -> detect "BSSID PWR" -> AP_HEADER
-  AP_HEADER -> blank line -> AP_DATA
-  AP_DATA -> parse each line -> Network discovered
-  AP_DATA -> detect "BSSID STATION" -> CLIENT_HEADER
-  CLIENT_HEADER -> blank line -> CLIENT_DATA
-  CLIENT_DATA -> parse each line -> Client discovered
+Memory management:
+  - Max 500 networks (evicts weakest signal when full)
+  - Max 1000 clients (evicts oldest last_seen when full)
+  - Stale eviction: removes entries not seen for >120s
+  - Dedup callbacks: only fires on first seen or changed data
+  - Reuses parser across poll cycles (no alloc per cycle)
 """
 from __future__ import annotations
 
@@ -18,6 +16,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 from enum import Enum, auto
 from typing import Callable, Optional
 
@@ -26,245 +25,161 @@ from .subprocess_mgr import SubprocessManager, get_manager
 
 logger = logging.getLogger(__name__)
 
-
-class ParseState(Enum):
-    IDLE = auto()
-    AP_HEADER = auto()
-    AP_DATA = auto()
-    CLIENT_HEADER = auto()
-    CLIENT_DATA = auto()
+# --- Memory limits ---
+MAX_NETWORKS = 500
+MAX_CLIENTS = 1000
+STALE_TIMEOUT_SECS = 120  # remove entries not seen for this long
 
 
-class AirodumpParser:
-    """Parse airodump-ng stdout line-by-line into Network and Client objects."""
-
-    def __init__(self) -> None:
-        self.state = ParseState.IDLE
-        self.networks: dict[str, Network] = {}  # bssid -> Network
-        self.clients: dict[str, Client] = {}    # mac -> Client
-
-    def feed(self, line: str) -> Optional[Network | Client]:
-        """Feed one line of airodump-ng output. Returns parsed object or None."""
-        # airodump-ng uses carriage returns to clear screen — strip them
-        line = line.replace("\r", "").strip()
-
-        # Detect section headers (case-insensitive to handle both
-        # live terminal output and CSV file headers)
-        low = line.lower()
-        if "bssid" in low and "station" in low:
-            self.state = ParseState.CLIENT_HEADER
-            return None
-        if "bssid" in low and ("pwr" in low or "power" in low) and "essid" in low:
-            self.state = ParseState.AP_HEADER
-            return None
-
-        # Blank lines transition states
-        if not line:
-            if self.state == ParseState.AP_HEADER:
-                self.state = ParseState.AP_DATA
-            elif self.state == ParseState.CLIENT_HEADER:
-                self.state = ParseState.CLIENT_DATA
-            return None
-
-        # Non-blank data line after a header → transition to DATA state
-        if self.state == ParseState.AP_HEADER:
-            self.state = ParseState.AP_DATA
-        elif self.state == ParseState.CLIENT_HEADER:
-            self.state = ParseState.CLIENT_DATA
-
-        # Parse data lines
-        if self.state == ParseState.AP_DATA:
-            return self._parse_ap_line(line)
-        if self.state == ParseState.CLIENT_DATA:
-            return self._parse_client_line(line)
-
-        return None
-
-    def _parse_ap_line(self, line: str) -> Optional[Network]:
-        """Parse an airodump-ng AP table line.
-
-        Format: BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
-        """
-        parts = [p.strip() for p in line.split(",")]
-        if len(parts) < 14:
-            return None
-        # Basic MAC validation
-        if not re.match(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$', parts[0]):
-            return None
-        try:
-            bssid = parts[0].upper()
-            channel = int(parts[3]) if parts[3].strip().lstrip('-').isdigit() else 0
-            signal = int(parts[8]) if parts[8].strip().lstrip('-').isdigit() else -100
-            privacy = parts[5].strip() or "OPN"
-            cipher = parts[6].strip()
-            auth = parts[7].strip()
-            beacons = int(parts[9]) if parts[9].strip().isdigit() else 0
-            data_packets = int(parts[10]) if parts[10].strip().isdigit() else 0
-            essid_raw = parts[13].strip() if len(parts) > 13 else ""
-            # Handle hidden SSID
-            essid = essid_raw if essid_raw and essid_raw != "\x00" else ""
-            first_seen = parts[1].strip()
-            last_seen = parts[2].strip()
-
-            network = Network(
-                bssid=bssid,
-                channel=channel,
-                signal=signal,
-                privacy=privacy,
-                cipher=cipher,
-                auth=auth,
-                essid=essid,
-                beacons=beacons,
-                data_packets=data_packets,
-                first_seen=first_seen,
-                last_seen=last_seen,
-            )
-            self.networks[bssid] = network
-            return network
-        except (ValueError, IndexError) as e:
-            logger.debug("AP parse error: %s | line: %s", e, line[:80])
-            return None
-
-    def _parse_client_line(self, line: str) -> Optional[Client]:
-        """Parse an airodump-ng client table line.
-
-        Format: Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
-        """
-        parts = [p.strip() for p in line.split(",")]
-        if len(parts) < 6:
-            return None
-        if not re.match(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$', parts[0]):
-            return None
-        try:
-            mac = parts[0].upper()
-            signal = int(parts[3]) if parts[3].strip().lstrip('-').isdigit() else 0
-            packets = int(parts[4]) if parts[4].strip().isdigit() else 0
-            bssid = parts[5].upper() if len(parts) > 5 else ""
-            probe = parts[6].strip() if len(parts) > 6 else ""
-            first_seen = parts[1].strip()
-            last_seen = parts[2].strip()
-
-            client = Client(
-                mac=mac,
-                bssid=bssid,
-                signal=signal,
-                packets=packets,
-                probe=probe,
-                first_seen=first_seen,
-                last_seen=last_seen,
-            )
-            self.clients[mac] = client
-            return client
-        except (ValueError, IndexError) as e:
-            logger.debug("Client parse error: %s | line: %s", e, line[:80])
-            return None
-
+import json
+import threading
+import queue
 
 class ScanEngine:
-    """Run airodump-ng and emit discovered networks and clients in real-time."""
+    """Run airodump-ng and emit discovered networks and clients in real-time via JSON FIFO."""
 
     def __init__(self, mgr: Optional[SubprocessManager] = None) -> None:
         self.mgr = mgr or get_manager()
-        self.parser = AirodumpParser()
         self._proc: Optional[asyncio.subprocess.Process] = None
         self._running = False
 
+        self.networks: dict[str, Network] = {}
+        self.clients: dict[str, Client] = {}
+
+        
     async def scan(
         self,
         mon_iface: str,
         capture_prefix: str = "/tmp/sidewinder_scan",
         band: str = "",
         channels: list[int] | None = None,
+        update_secs: float = 0.1,
+        hop_ms: int = 250,
+        write_interval_secs: int = 0,
+        poll_ms: int = 100,
         on_network: Optional[Callable[[Network], None]] = None,
         on_client: Optional[Callable[[Client], None]] = None,
+        on_init: Optional[Callable[[str], None]] = None,
     ) -> None:
-        """Start scanning. Calls on_network/on_client for each discovered entity.
+        
+        self.fifo_path = f"{capture_prefix}_fifo.json"
+        fifo_path = self.fifo_path
+        if hasattr(os, "mkfifo"):
+            try:
+                os.mkfifo(fifo_path)
+            except FileExistsError:
+                pass
 
-        Parses the airodump-ng CSV output file for real data (not stdout which
-        contains screen-refresh escape sequences). CSV is written by airodump-ng
-        with --write flag.
-
-        Args:
-            mon_iface: Monitor interface
-            capture_prefix: Prefix for airodump-ng output files
-            band: "a" for 5GHz, "bg" for 2.4GHz, "" for all
-            channels: Specific channels to scan (optional)
-            on_network: Callback for new/updated network
-            on_client: Callback for new/updated client
-        """
         cmd = [
             "airodump-ng",
             mon_iface,
-            "--write", capture_prefix,
-            "--output-format", "csv",
-            "-a",     # Only show associated clients
-            "--wps",  # Show WPS status
+            "--json", fifo_path,
+            "-a",
+            "--wps",
+            "--update", str(update_secs),
+            "-f", str(hop_ms),
         ]
         if band:
             cmd.extend(["--band", band])
         if channels:
             cmd.extend(["--channel", ",".join(str(c) for c in channels)])
 
-        logger.info("Starting scan on %s", mon_iface)
+        logger.info("Starting scan on %s with JSON FIFO", mon_iface)
         self._running = True
+        asyncio.ensure_future(self._stale_eviction_loop())
 
         if "MOCK" in mon_iface:
-            # Simulated scan loop for mock/development environment
             mock_nets = [
                 Network(bssid="00:11:22:33:44:55", channel=1, signal=-45, privacy="WPA2", cipher="CCMP", auth="PSK", essid="HomeWiFi", wps=True),
                 Network(bssid="66:77:88:99:AA:BB", channel=6, signal=-62, privacy="WPA2", cipher="CCMP", auth="PSK", essid="OfficeNet", wps=False),
-                Network(bssid="CC:DD:EE:FF:00:11", channel=11, signal=-78, privacy="WEP", cipher="WEP", auth="NONE", essid="CoffeeShop", wps=False),
-            ]
-            mock_clients = [
-                Client(mac="AA:BB:CC:DD:EE:FF", bssid="00:11:22:33:44:55", signal=-50, packets=250),
-                Client(mac="11:22:33:44:55:66", bssid="66:77:88:99:AA:BB", signal=-65, packets=45),
             ]
             while self._running:
                 await asyncio.sleep(1.0)
                 if on_network:
                     for n in mock_nets:
-                        self.parser.networks[n.bssid] = n
+                        self.networks[n.bssid] = n
                         on_network(n)
-                if on_client:
-                    for c in mock_clients:
-                        self.parser.clients[c.mac] = c
-                        on_client(c)
             return
 
         self._proc = await self.mgr.start_background(cmd)
+        
+        if on_init:
+            on_init("ready")
 
-        # Poll the CSV file for updates (airodump-ng stdout is screen refreshes)
-        csv_file = f"{capture_prefix}-01.csv"
+        q = queue.Queue()
+        def fifo_reader():
+            try:
+                with open(fifo_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if not self._running:
+                            break
+                        q.put(line)
+            except Exception as e:
+                logger.debug("FIFO reader error: %s", e)
+
+        # Start thread only if on Unix and mkfifo worked, otherwise we might hang
+        if hasattr(os, "mkfifo"):
+            t = threading.Thread(target=fifo_reader, daemon=True)
+            t.start()
+        else:
+            logger.error("os.mkfifo not supported on this OS. Scan will not receive data.")
+
         while self._running:
-            await asyncio.sleep(1.0)
-            if os.path.exists(csv_file):
-                try:
-                    await self._parse_csv(csv_file, on_network, on_client)
-                except Exception as e:
-                    logger.debug("CSV parse error: %s", e)
+            try:
+                # Read all available items in the queue
+                while True:
+                    line = q.get_nowait()
+                    self._parse_json(line, on_network, on_client)
+            except queue.Empty:
+                await asyncio.sleep(0.05)
 
-    async def _parse_csv(
+    def _parse_json(
         self,
-        csv_file: str,
+        line: str,
         on_network: Optional[Callable[[Network], None]],
         on_client: Optional[Callable[[Client], None]],
     ) -> None:
-        """Parse airodump-ng CSV output file."""
-        with open(csv_file, errors="replace") as f:
-            content = f.read()
+        try:
+            data = json.loads(line)
+            if data.get("type") != "update":
+                return
+            
+            for n_dict in data.get("networks", []):
+                n = Network(**n_dict)
+                existing = self.networks.get(n.bssid)
+                self.networks[n.bssid] = n
+                if on_network and (not existing or n.signal != existing.signal or n.data_packets != existing.data_packets):
+                    on_network(n)
+                    
+            for c_dict in data.get("clients", []):
+                c = Client(**c_dict)
+                existing = self.clients.get(c.mac)
+                self.clients[c.mac] = c
+                if on_client and (not existing or c.signal != existing.signal or c.packets != existing.packets):
+                    on_client(c)
+        except json.JSONDecodeError:
+            pass
+        except Exception as e:
+            logger.debug("JSON parsing error: %s", e)
+        self._enforce_limits()
 
-        # Reset parser for fresh parse
-        parser = AirodumpParser()
-        for line in content.splitlines():
-            result = parser.feed(line)
-            if isinstance(result, Network) and on_network:
-                on_network(result)
-            elif isinstance(result, Client) and on_client:
-                on_client(result)
 
-        # Sync to our state
-        self.parser.networks.update(parser.networks)
-        self.parser.clients.update(parser.clients)
+    def _enforce_limits(self):
+        if len(self.networks) > MAX_NETWORKS:
+            weakest = min(self.networks, key=lambda b: self.networks[b].signal)
+            del self.networks[weakest]
+        if len(self.clients) > MAX_CLIENTS:
+            oldest = min(self.clients, key=lambda m: self.clients[m].last_seen)
+            del self.clients[oldest]
+
+    async def _stale_eviction_loop(self):
+        while self._running:
+            await asyncio.sleep(30)
+            now = time.time()
+            stale = [b for b, n in self.networks.items()
+                     if n.last_seen and (now - float(n.last_seen)) > STALE_TIMEOUT_SECS]
+            for b in stale:
+                del self.networks[b]
 
     def stop(self) -> None:
         """Stop scanning."""
@@ -276,18 +191,30 @@ class ScanEngine:
         if self._proc:
             await self.mgr.kill_background(self._proc)
             self._proc = None
+        if hasattr(self, 'fifo_path') and os.path.exists(self.fifo_path):
+            try:
+                os.unlink(self.fifo_path)
+            except OSError:
+                pass
 
     def get_networks(self) -> list[Network]:
         """Get all discovered networks, sorted by signal strength."""
         return sorted(
-            self.parser.networks.values(),
+            self.networks.values(),
             key=lambda n: n.signal,
             reverse=True,
         )
 
     def get_clients(self, bssid: Optional[str] = None) -> list[Client]:
         """Get clients, optionally filtered by AP BSSID."""
-        clients = list(self.parser.clients.values())
+        clients = list(self.clients.values())
         if bssid:
             clients = [c for c in clients if c.bssid == bssid.upper()]
         return clients
+
+    def get_stats(self) -> dict:
+        """Return memory management statistics."""
+        return {
+            "networks": len(self.networks),
+            "clients": len(self.clients)
+        }

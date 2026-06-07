@@ -36,17 +36,6 @@ Header .header--title {
     color: $foreground;
 }
 
-#nav-bar {
-    background: $surface;
-    color: $foreground;
-    dock: bottom;
-    height: 1;
-    border-top: solid $accent 30%;
-    padding: 0 4;
-}
-
-
-
 /* ── DataTable ──────────────────────────────────────────────────────────── */
 
 DataTable {
@@ -302,8 +291,6 @@ Center {
     height: auto;
     width: 56;
     color: $foreground;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    HINTS BAR (bottom of main menu)
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -346,13 +333,6 @@ Center {
    CAPTURE METHOD SCREEN
    ═══════════════════════════════════════════════════════════════════════════ */
 
-#method-list {
-    width: 2fr;
-    background: $background;
-    border-right: tall $surface;
-    padding: 1 2;
-}
-
 #tooltip-panel {
     width: 1fr;
     background: $panel;
@@ -373,14 +353,6 @@ Center {
 /* ═══════════════════════════════════════════════════════════════════════════
    RESULT / PASSWORD CARD
    ═══════════════════════════════════════════════════════════════════════════ */
-
-#result-card {
-    border: tall $success;
-    background: $panel;
-    padding: 1 2;
-    margin: 1 4;
-    width: 60;
-}
 
 #result-password {
     color: $success;
@@ -482,8 +454,25 @@ Center {
 /* ── Screen Containers ── */
 
 #sc-scan, #sc-target, #sc-capture, #sc-deauth,
-#sc-crack, #sc-result, #sc-error, #sc-resume {
+#sc-crack, #sc-result, #sc-error {
     padding: 1 4 2 4;
+}
+
+/* Resume screen — centered content, full height */
+#sc-resume {
+    align: center middle;
+    width: 100%;
+    height: 100%;
+    padding: 0 4 2 4;
+}
+
+/* Resume content widgets — shrink to content so Center() can position them */
+#resume-title,
+#resume-summary,
+#resume-options {
+    width: fit-content;
+    text-align: center;
+    align-self: center;
 }
 
 #sc-method {
@@ -854,3 +843,32 @@ InlineConfirm.active {
     text-style: bold;
 }
 
+
+/* ── Hints bar utility class ─────────────────────────────────────────────── */
+
+.hints {
+    padding: 1 0 0 0;
+    color: $foreground;
+}
+
+/* ── Help screen hints (docked at bottom) ──────────────────────────── */
+
+#help-hints {
+    padding: 0 4;
+    color: $foreground;
+    height: 1;
+    background: $surface;
+    border-top: solid $accent 30%;
+}
+
+/* ── Global persistent status bar ───────────────────────────────────── */
+
+#global-status-bar {
+    dock: bottom;
+    height: 1;
+    background: $surface;
+    border-top: solid $accent 30%;
+    padding: 0 2;
+    color: $foreground;
+}
+}
